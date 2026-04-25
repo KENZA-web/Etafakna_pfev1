@@ -2,10 +2,10 @@ export interface Client {
   id: string;
   name: string;
   co: string;
-  email: string;
+  email: string | null;
   phone: string;
   taxId: string;
-  addr: string;
+  address: string;
   city: string;
   country?: string;
   notes?: string;
@@ -14,40 +14,50 @@ export interface Client {
   ca: string;
 }
 
+export type VatRate = 'ZERO' | 'SEVEN' | 'THIRTEEN' | 'NINETEEN';
+export type Currency = 'TND' | 'EUR' | 'USD';
+
 export interface LineItem {
   id: string;
   description: string;
   quantity: number;
   unitPrice: number;
-  vatRate: number;
-  total: number;
+  vatRate: VatRate;
+  lineTotal: number;
 }
+
+export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'CANCELLED';
 
 export interface Invoice {
   id: string;
   client: string;
   co: string;
-  ht: number;
-  ttc: number;
-  date: string;
-  due: string;
-  status: 'paid' | 'pending' | 'draft' | 'refused' | 'signed';
+  subtotal: number;
+  total: number;
+  issueDate: string;
+  dueDate: string;
+  status: InvoiceStatus;
   lc: number;
-  desc: string;
-  payDate?: string;
+  notes: string;
+  paidDate?: string;
+  currency?: Currency;
+  clientEmail?: string | null;
   lines?: LineItem[];
 }
+
+export type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REFUSED' | 'CONVERTED';
 
 export interface Devis {
   id: string;
   client: string;
   co: string;
-  ttc: number;
-  date: string;
-  status: 'draft' | 'pending' | 'signed' | 'refused';
-  desc: string;
+  total: number;
+  issueDate: string;
+  status: QuotationStatus;
+  notes: string;
   converted: boolean;
-  convertedTo?: string;
+  convertedToInvoiceId?: string;
+  currency?: Currency;
   lines?: LineItem[];
 }
 

@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Calculator, AlertCircle, Sparkles } from 'lucide-react';
 
 interface FiscalAnalyzerProps {
+  invoiceId: string;
   items: any[];
   taxRate: number;
   currency: string;
@@ -11,8 +12,9 @@ interface FiscalAnalyzerProps {
 }
 
 export const FiscalAnalyzer: React.FC<FiscalAnalyzerProps> = ({
-  items,
-  taxRate,
+  invoiceId,
+  items: _items,
+  taxRate: _taxRate,
   currency,
   onApplySuggestion,
 }) => {
@@ -24,19 +26,7 @@ export const FiscalAnalyzer: React.FC<FiscalAnalyzerProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const documentForAnalysis = {
-        lines: items.map((item) => ({
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          description: item.description,
-        })),
-        fiscal: {
-          tva: taxRate > 0,
-          timbre: false,
-          ras: false,
-        },
-      };
-      const result = await analyzeFiscal(documentForAnalysis);
+      const result = await analyzeFiscal(invoiceId);
       setAnalysis(result);
     } catch (err) {
       setError("Échec de l'analyse fiscale");
@@ -74,7 +64,7 @@ export const FiscalAnalyzer: React.FC<FiscalAnalyzerProps> = ({
           <div className="flex justify-between text-sm">
             <span className="text-gray-500">Total HT détecté</span>
             <span className="font-mono font-bold">
-              {analysis.ht.toFixed(3)} {currency}
+              {analysis.subtotal.toFixed(3)} {currency}
             </span>
           </div>
           <div className="flex justify-between text-sm">
@@ -98,7 +88,7 @@ export const FiscalAnalyzer: React.FC<FiscalAnalyzerProps> = ({
           <div className="flex justify-between font-bold pt-2 border-t border-gray-200">
             <span>Total TTC calculé</span>
             <span className="text-accent">
-              {analysis.ttc.toFixed(3)} {currency}
+              {analysis.total.toFixed(3)} {currency}
             </span>
           </div>
 

@@ -5,12 +5,10 @@ import { Card, CardHeader, CardTitle, CardSub } from '../components/ui/Card';
 import { KpiCard } from '../components/ui/KpiCard';
 import { Badge } from '../components/ui/Badge';
 import { 
-  TrendingUp, CheckCircle, Clock, Users, Shield, FileText, AlertTriangle, 
+  TrendingUp, CheckCircle, Clock, Shield, FileText, AlertTriangle, 
   Calendar, ArrowUp, Download, Filter, RefreshCw,
   ChevronLeft, ChevronRight, Eye, Mail
 } from 'lucide-react';
-
-// ... le reste du code identique
 
 // Composant Courbe modernisé
 const RevenueChart: React.FC<{ data: number[]; labels: string[] }> = ({ data, labels }) => {
@@ -152,19 +150,19 @@ const PeriodSelector: React.FC<{ value: string; onChange: (value: string) => voi
 export const Dashboard: React.FC = () => {
   const invoices = useSelector((state: RootState) => state.invoices);
   const devis = useSelector((state: RootState) => state.devis);
-  const clients = useSelector((state: RootState) => state.clients);
+  // Variable clients supprimée car non utilisée
   
   const [period, setPeriod] = useState('12m');
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const paidInvoices = invoices.filter(i => i.status === 'paid');
+  const paidInvoices = invoices.filter(i => i.status === 'PAID');
   const monthlyCA = 5119;
   const totalPaid = paidInvoices.length;
   const totalInvoices = invoices.length;
-  const pendingInvoices = invoices.filter(i => i.status === 'pending');
-  const pendingAmount = pendingInvoices.reduce((sum, i) => sum + i.ttc, 0);
-  const draftInvoices = invoices.filter(i => i.status === 'draft');
+  const pendingInvoices = invoices.filter(i => i.status === 'ISSUED');
+  const pendingAmount = pendingInvoices.reduce((sum, i) => sum + i.total, 0);
+  const draftInvoices = invoices.filter(i => i.status === 'DRAFT');
   const convertedDevis = devis.filter(d => d.converted);
   const conversionRate = devis.length ? Math.round((convertedDevis.length / devis.length) * 100) : 0;
   const paymentRate = invoices.length ? Math.round((paidInvoices.length / invoices.length) * 100) : 0;
@@ -182,11 +180,11 @@ export const Dashboard: React.FC = () => {
   const isOverdueAlert = pendingAmount > ALERT_THRESHOLD;
 
   const statusGroups = {
-    paid: { count: invoices.filter(i => i.status === 'paid').length, color: '#16a34a', label: 'Payées' },
-    pending: { count: invoices.filter(i => i.status === 'pending').length, color: '#d97706', label: 'En attente' },
-    draft: { count: invoices.filter(i => i.status === 'draft').length, color: '#94a3b8', label: 'Brouillon' },
-    refused: { count: invoices.filter(i => i.status === 'refused').length, color: '#dc2626', label: 'Refusées' },
-    signed: { count: invoices.filter(i => i.status === 'signed').length, color: '#4338ca', label: 'Signées' },
+    paid: { count: invoices.filter(i => i.status === 'PAID').length, color: '#16a34a', label: 'Payées' },
+    pending: { count: invoices.filter(i => i.status === 'ISSUED').length, color: '#d97706', label: 'En attente' },
+    draft: { count: invoices.filter(i => i.status === 'DRAFT').length, color: '#94a3b8', label: 'Brouillon' },
+    refused: { count: invoices.filter(i => i.status === 'CANCELLED').length, color: '#dc2626', label: 'Annulées' },
+    signed: { count: 0, color: '#4338ca', label: 'Signées' },
   };
   
   const donutData = Object.entries(statusGroups)
@@ -262,12 +260,11 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-5">
+      {/* KPIs - 4 cartes (suppression de "Clients actifs") */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
         <KpiCard label="CA mensuel (payé)" value={`${formatAmount(monthlyCA)} TND`} icon={<TrendingUp size={17} />} color="indigo" trend={{ value: 12.4, isUp: true }} footer="vs mois dernier" />
         <KpiCard label="Factures payées" value={totalPaid.toString()} icon={<CheckCircle size={17} />} color="green" footer={`sur ${totalInvoices} factures`} />
         <KpiCard label="En attente" value={pendingInvoices.length.toString()} icon={<Clock size={17} />} color="amber" footer={`${formatAmount(pendingAmount)} TND`} />
-        <KpiCard label="Clients actifs" value={clients.length.toString()} icon={<Users size={17} />} color="violet" footer={`${devis.length} devis`} />
         <KpiCard label="Délai moyen" value={`${averagePaymentDays} jours`} icon={<Calendar size={17} />} color="teal" trend={{ value: 2, isUp: false }} footer="amélioration" />
       </div>
 
@@ -316,7 +313,7 @@ export const Dashboard: React.FC = () => {
         </Card>
       </div>
 
-      {/* Clients + Alerte */}
+      {/* Clients + Alerte (sans le bouton "Relancer les impayés") */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         <Card padding>
           <CardHeader>
@@ -383,9 +380,7 @@ export const Dashboard: React.FC = () => {
                 <div className="text-[10px] text-ink-4">Taux de paiement</div>
               </div>
             </div>
-            <button className="w-full mt-3 py-2 text-center text-[11px] font-bold text-accent bg-white rounded-lg hover:bg-accent hover:text-white transition-all">
-              📧 Relancer les impayés
-            </button>
+            
           </div>
         </Card>
       </div>
@@ -463,8 +458,8 @@ export const Dashboard: React.FC = () => {
                     <div className="font-semibold">{inv.client}</div>
                     <div className="text-[10px] text-ink-4">{inv.co}</div>
                   </td>
-                  <td className="py-3 font-mono font-bold">{formatAmount(inv.ttc)} TND</td>
-                  <td className="py-3 text-sm text-ink-4">{formatDate(inv.date)}</td>
+                  <td className="py-3 font-mono font-bold">{formatAmount(inv.total)} TND</td>
+                  <td className="py-3 text-sm text-ink-4">{formatDate(inv.issueDate)}</td>
                   <td className="py-3"><Badge status={inv.status} /></td>
                   <td className="py-3">
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

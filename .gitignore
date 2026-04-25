@@ -1,1 +1,55 @@
-node_modules
+# Dépendances
+node_modules/
+.pnp
+.pnp.js
+
+# Environnement
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build & Cache
+dist/
+build/
+.vite/
+.next/
+.nuxt/
+.cache/
+*.tsbuildinfo
+
+# Prisma
+**/node_modules/.prisma/
+
+# Logs et fichiers temporaires
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests et couverture
+coverage/
+.nyc_output/
+
+# Fichiers dumps
+*.sql
+*.sql.gz
+
+# Autres
+*.tgz
+*.tar.gz

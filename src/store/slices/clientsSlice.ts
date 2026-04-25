@@ -1,34 +1,48 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { Client } from '../../types';
+import api from '../../services/api';
 
-const initialClients: Client[] = [
-  { id: 'c1', name: 'TechCorp SARL', co: 'Entreprise technologique', email: 'contact@techcorp.tn', phone: '+216 71 100 001', taxId: '1234567A/PM/000', addr: '12 Rue de la Technologie', city: 'Tunis', factures: 12, ca: '18 400', color: '#4f46e5', notes: 'Client prioritaire' },
-  { id: 'c2', name: 'Avocats Associés', co: 'Cabinet juridique', email: 'info@avocats.tn', phone: '+216 71 200 002', taxId: '9876543B/PM/000', addr: '45 Av. H. Bourguiba', city: 'Sfax', factures: 8, ca: '12 600', color: '#7c3aed', notes: '' },
-  { id: 'c3', name: 'StartupHub Tunisia', co: 'Incubateur de startups', email: 'hello@startuphub.tn', phone: '+216 71 300 003', taxId: '5432109C/PM/000', addr: '8 Rue Innovation', city: 'Sousse', factures: 5, ca: '7 200', color: '#059669', notes: '' },
-  { id: 'c4', name: 'Digital Solutions', co: 'Agence digitale & Web', email: 'contact@digital.tn', phone: '+216 71 400 004', taxId: '3210987D/PM/000', addr: '22 Rue du Commerce', city: 'Bizerte', factures: 3, ca: '4 500', color: '#d97706', notes: 'Paiements parfois en retard' },
-];
+// Plus de dedupeRequest pour être sûr de recevoir la vraie réponse
+export const fetchClients = createAsyncThunk('clients/fetchAll', async () => {
+  const response = await api.get<{ success: boolean; data: Client[] }>('/clients');
+  console.log('✅ API Response (clients):', response);
+  console.log('📦 response.data:', response.data);
+  const result = Array.isArray(response.data) ? response.data : response.data?.data || [];
+  console.log('📤 Retourné au reducer:', result);
+  return result;
+});
+
+export const createClient = createAsyncThunk('clients/create', async (payload: Client) => {
+  const response = await api.post<{ success: boolean; data: Client }>('/clients', payload);
+  return response.data.data;
+});
+
+export const editClient = createAsyncThunk('clients/update', async (payload: Client) => {
+  const response = await api.put<{ success: boolean; data: Client }>(`/clients/${payload.id}`, payload);
+  return response.data.data;
+});
+
+export const removeClient = createAsyncThunk('clients/delete', async (id: string) => {
+  await api.delete(`/clients/${id}`);
+  return id;
+});
 
 const clientsSlice = createSlice({
   name: 'clients',
-  initialState: initialClients,
-  reducers: {
-    addClient: (state, action: PayloadAction<Client>) => {
-      state.push(action.payload);
-    },
-    updateClient: (state, action: PayloadAction<Client>) => {
-      const index = state.findIndex(c => c.id === action.payload.id);
-      if (index !== -1) {
-        state[index] = action.payload;
-      }
-    },
-    deleteClient: (state, action: PayloadAction<string>) => {
-      const index = state.findIndex(c => c.id === action.payload);
-      if (index !== -1) {
-        state.splice(index, 1);
-      }
-    },
+  initialState: [] as Client[],
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchClients.fulfilled, (_, action) => action.payload)
+      .addCase(createClient.fulfilled, (state, action) => {
+        state.push(action.payload);
+      })
+      .addCase(editClient.fulfilled, (state, action) => {
+        const index = state.findIndex((c) => c.id === action.payload.id);
+        if (index !== -1) state[index] = action.payload;
+      })
+      .addCase(removeClient.fulfilled, (state, action) => state.filter((c) => c.id !== action.payload));
   },
 });
 
-export const { addClient, updateClient, deleteClient } = clientsSlice.actions;
 export default clientsSlice.reducer;

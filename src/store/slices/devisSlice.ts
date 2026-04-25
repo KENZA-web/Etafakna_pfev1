@@ -1,28 +1,69 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { Devis } from '../../types';
+import api from '../../services/api';
+import { dedupeRequest } from '../../services/requestCache';
 
-const initialDevis: Devis[] = [
-  { id: 'DEV-2026-018', client: 'TechCorp SARL', co: 'Entreprise tech', ttc: 3332, date: '2026-03-22', status: 'pending', desc: 'Audit conformité fiscale', converted: false, lines: [] },
-  { id: 'DEV-2026-017', client: 'StartupHub Tunisia', co: 'Incubateur', ttc: 1428, date: '2026-03-18', status: 'draft', desc: 'Formation droit du travail', converted: false, lines: [] },
-  { id: 'DEV-2026-016', client: 'Avocats Associés', co: 'Cabinet juridique', ttc: 6545, date: '2026-03-10', status: 'signed', desc: 'Contrats partenariat long terme', converted: true, convertedTo: 'FAC-2026-027', lines: [] },
-];
+// ─── Thunks ─────────────────────────────────
+
+// Fetch : transformation comme pour les invoices
+export const fetchQuotations = createAsyncThunk('devis/fetchAll', async () => {
+  return dedupeRequest('quotations', async () => {
+    const response = await api.get<{ success: boolean; data: any[] }>('/quotations');
+    const rawData = response.data.data;
+    const transformedData = rawData.map((q: any) => ({
+      ...q,
+      client: q.client?.name || q.client || '—',
+    }));
+    return transformedData;
+  });
+});
+
+// Create : normaliser le client avant d'ajouter au state
+export const createQuotation = createAsyncThunk('devis/create', async (payload: any) => {
+  const response = await api.post<{ success: boolean; data: any }>('/quotations', payload);
+  const quotation = response.data.data;
+  const normalized = {
+    ...quotation,
+    client: quotation.client?.name || quotation.client || '—',
+  };
+  return normalized;
+});
+
+// Edit : pareil
+export const editQuotation = createAsyncThunk('devis/update', async (payload: Devis) => {
+  const response = await api.put<{ success: boolean; data: any }>(`/quotations/${payload.id}`, payload);
+  const quotation = response.data.data;
+  const normalized = {
+    ...quotation,
+    client: quotation.client?.name || quotation.client || '—',
+  };
+  return normalized;
+});
+
+// Delete : inchangé
+export const removeQuotation = createAsyncThunk('devis/delete', async (id: string) => {
+  await api.delete(`/quotations/${id}`);
+  return id;
+});
+
+// ─── Slice ──────────────────────────────────
 
 const devisSlice = createSlice({
   name: 'devis',
-  initialState: initialDevis,
-  reducers: {
-    addDevis: (state, action: PayloadAction<Devis>) => {
-      state.unshift(action.payload);
-    },
-    convertDevis: (state, action: PayloadAction<{ id: string; invoiceId: string }>) => {
-      const devis = state.find(d => d.id === action.payload.id);
-      if (devis && !devis.converted) {
-        devis.converted = true;
-        devis.convertedTo = action.payload.invoiceId;
-      }
-    },
+  initialState: [] as Devis[],
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchQuotations.fulfilled, (_, action) => action.payload)
+      .addCase(createQuotation.fulfilled, (state, action) => {
+        state.unshift(action.payload);
+      })
+      .addCase(editQuotation.fulfilled, (state, action) => {
+        const index = state.findIndex((d) => d.id === action.payload.id);
+        if (index !== -1) state[index] = action.payload;
+      })
+      .addCase(removeQuotation.fulfilled, (state, action) => state.filter((d) => d.id !== action.payload));
   },
 });
 
-export const { addDevis, convertDevis } = devisSlice.actions;
 export default devisSlice.reducer;

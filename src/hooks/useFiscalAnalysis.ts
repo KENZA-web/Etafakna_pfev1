@@ -6,11 +6,11 @@ export const useFiscalAnalysis = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const runAnalysis = async (document: any) => {
+  const runAnalysis = async (invoiceId: string) => {
     setLoading(true);
     setError(null);
     try {
-      const result = await analyzeFiscal(document);
+      const result = await analyzeFiscal(invoiceId);
       setAnalysis(result);
     } catch (err) {
       setError("Échec de l'analyse fiscale");

@@ -1,27 +1,26 @@
-// services/assistantIA.ts
+import api from './api';
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
 
-// Simulation d'appel API (à remplacer par ton vrai endpoint)
 export async function sendMessageToAssistant(
   messages: ChatMessage[],
-  documentContext: any
+  documentContext: any,
 ): Promise<string> {
-  // Simuler un délai réseau
-  await new Promise(resolve => setTimeout(resolve, 800));
+  const question = messages[messages.length - 1]?.content || '';
+  const invoiceId = documentContext?.id;
 
-  const lastQuestion = messages[messages.length - 1]?.content.toLowerCase() || '';
-  
-  if (lastQuestion.includes('tva')) {
-    return "Le taux de TVA applicable est de 19% sur les prestations de services (sauf exceptions).";
+  if (!invoiceId) return "Contexte de document manquant.";
+
+  try {
+    const response = await api.post<{ success: boolean; data: { answer: string } }>(
+      `/invoices/${invoiceId}/chat`,
+      { question },
+    );
+    return response.data.data.answer;
+  } catch {
+    return "Désolé, une erreur est survenue lors de la communication avec l'assistant.";
   }
-  if (lastQuestion.includes('timbre')) {
-    return "Un timbre fiscal de 1 TND est obligatoire pour les factures d'un montant supérieur à 10 TND.";
-  }
-  if (lastQuestion.includes('résumé') || lastQuestion.includes('resume')) {
-    return `📄 Document : ${documentContext.id} – Client : ${documentContext.client} – Montant TTC : ${documentContext.ttc} TND. Statut : ${documentContext.status}. Date d'émission : ${documentContext.date}.`;
-  }
-  return "Je suis votre assistant. Vous pouvez me poser des questions sur ce document (ex: 'Résumé', 'TVA', 'Timbre fiscal').";
 }

@@ -30,6 +30,7 @@ export type InvoiceStatus = 'DRAFT' | 'ISSUED' | 'PAID' | 'CANCELLED';
 
 export interface Invoice {
   id: string;
+  invoiceNumber?: string;
   client: string;
   co: string;
   subtotal: number;

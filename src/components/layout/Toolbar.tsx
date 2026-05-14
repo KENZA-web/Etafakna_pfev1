@@ -16,19 +16,17 @@ export const Toolbar: React.FC = () => {
   const currentPage = useSelector((state: RootState) => state.ui.currentPage);
 
   return (
-    <div className="flex items-center gap-2 px-5 py-2.5 bg-white border-b border-[#e2e8f0] sticky top-0 z-30">
+    <div className="flex items-center justify-end gap-2 px-5 py-2.5 bg-white border-b border-[#e2e8f0] sticky top-0 z-30 pr-10">
       <button
         onClick={() => dispatch(toggleMenu())}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#f8fafc] border border-[#cbd5e1] text-[12.5px] font-bold text-[#1e293b] hover:bg-[#eef2ff] hover:border-[#e0e7ff] hover:text-[#4f46e5] transition-all"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-[#f8fafc] border border-[#cbd5e1] text-[12.5px] font-bold text-[#1e293b] hover:bg-[#EFF6FF] hover:border-[#D9E6FF] hover:text-[#1C6AE4] transition-all"
       >
         <Menu size={14} />
-        Menu
+        Panneau
         <span className="text-[11px] font-semibold text-[#94a3b8] pl-1.5 ml-1 border-l border-[#e2e8f0]">
           {pageLabels[currentPage]}
         </span>
       </button>
-
-      {/* Les deux boutons "+ Nouveau devis" et "+ Nouvelle facture" ont été supprimés */}
     </div>
   );
 };

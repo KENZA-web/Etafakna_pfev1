@@ -52,14 +52,14 @@ export const SideMenu: React.FC = () => {
                   dispatch(setMenuOpen(false));
                 }}
                 className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all mb-1 border border-transparent ${
-                  isActive ? 'bg-[#eef2ff] border-[#e0e7ff]' : 'hover:bg-[#f8fafc] hover:border-[#e2e8f0]'
+                  isActive ? 'bg-[#EFF6FF] border-[#D9E6FF]' : 'hover:bg-[#f8fafc] hover:border-[#e2e8f0]'
                 }`}
               >
                 <div className={`w-9 h-9 rounded-md flex items-center justify-center flex-shrink-0 ${colorClasses[item.color as keyof typeof colorClasses]}`}>
                   <Icon size={17} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className={`text-[13.5px] font-bold ${isActive ? 'text-[#4f46e5]' : 'text-[#0f172a]'}`}>
+                  <div className={`text-[13.5px] font-bold ${isActive ? 'text-[#1C6AE4]' : 'text-[#0f172a]'}`}>
                     {item.label}
                   </div>
                   <div className="text-[11px] text-[#94a3b8] mt-0.5">{item.desc}</div>

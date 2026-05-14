@@ -4,12 +4,17 @@ import api from '../../services/api';
 
 // Plus de dedupeRequest pour être sûr de recevoir la vraie réponse
 export const fetchClients = createAsyncThunk('clients/fetchAll', async () => {
-  const response = await api.get<{ success: boolean; data: Client[] }>('/clients');
-  console.log('✅ API Response (clients):', response);
-  console.log('📦 response.data:', response.data);
-  const result = Array.isArray(response.data) ? response.data : response.data?.data || [];
-  console.log('📤 Retourné au reducer:', result);
-  return result;
+  const response = await api.get<{ success: boolean; data: any[] }>('/clients');
+  const raw = Array.isArray(response.data) ? response.data : response.data?.data || [];
+  return raw.map((c: any) => ({
+    ...c,
+    factures: c.invoiceCount ?? c._count?.invoices ?? 0,
+    ca: c.ca != null ? Number(c.ca).toFixed(3) : '0.000',
+    color: c.color || '#4f46e5',
+    co: c.co || '',
+    city: c.city || '',
+    country: c.country || c.countryCode || 'TN',
+  }));
 });
 
 export const createClient = createAsyncThunk('clients/create', async (payload: Client) => {

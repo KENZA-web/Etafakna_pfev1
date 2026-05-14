@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useAppDispatch, RootState } from '../store';
 import { fetchClients, removeClient } from '../store/slices/clientsSlice';
-import { openModal, addToast } from '../store/slices/uiSlice';
+import { openModal, addToast, setCurrentPage } from '../store/slices/uiSlice';
 import { Button } from '../components/ui/Button';
-import { 
-  Search, Plus, Mail, Phone, MapPin, Building, FileText, 
-  Edit, Trash2, Globe, PhoneCall
+import {
+  Search, Plus, Mail, MapPin, Building, FileText,
+  Edit, Trash2, Globe, TrendingUp,
 } from 'lucide-react';
 import type { Client } from '../types';
 
@@ -49,39 +49,30 @@ export const Clients: React.FC = () => {
     dispatch(openModal({ type: 'client', data: client }));
   };
 
-  const handleCall = (phone: string, name: string) => {
-    if (phone) {
-      window.location.href = `tel:${phone}`;
-    } else {
-      dispatch(addToast({ message: `📞 Pas de numéro pour ${name}`, type: 'error' }));
-    }
-  };
-
-  // Envoie toutes les données du client au modal de facture
-  const handleInvoice = (client: Client) => {
-    dispatch(openModal({ 
-      type: 'invoice', 
-      data: { 
-        clientId: client.id,
-        clientName: client.name,
-        clientCo: client.co,
-        clientEmail: client.email,
-        clientPhone: client.phone,
-        clientAddress: client.address,
-        clientCity: client.city,
-        clientCountry: client.country || 'Tunisie',
-        clientTaxId: client.taxId,
-        clientColor: client.color,
-      }
-    }));
-  };
-
+  // Email → ouvre le client mail avec le destinataire pré-rempli
   const handleEmail = (email: string | null, name: string) => {
     if (email) {
       window.location.href = `mailto:${email}`;
     } else {
       dispatch(addToast({ message: `📧 Pas d'email pour ${name}`, type: 'error' }));
     }
+  };
+
+  // Facturer → navigue vers page formulaire facture avec données pré-remplies
+  const handleInvoice = (client: Client) => {
+    dispatch({ type: 'ui/openModal', payload: { type: 'invoice', data: {
+      clientId: client.id,
+      clientName: client.name,
+      clientCo: client.co,
+      clientEmail: client.email,
+      clientPhone: client.phone,
+      clientAddress: client.address,
+      clientCity: client.city,
+      clientCountry: client.country || 'Tunisie',
+      clientTaxId: client.taxId,
+      clientColor: client.color,
+    }}});
+    dispatch(setCurrentPage('nouvelle-facture'));
   };
 
   return (
@@ -97,10 +88,14 @@ export const Clients: React.FC = () => {
             className="border-none outline-none bg-transparent text-[12.5px] font-inherit text-[#0f172a] w-full placeholder:text-[#cbd5e1]"
           />
         </div>
-        <Button variant="primary" size="sm" className="ml-auto" onClick={() => dispatch(openModal({ type: 'client', data: null }))}>
+        <button
+          onClick={() => dispatch(openModal({ type: 'client', data: null }))}
+          style={{ backgroundColor: '#1C6AE4' }}
+          className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-md text-[12.5px] font-bold text-white cursor-pointer transition-all hover:opacity-90"
+        >
           <Plus size={12} />
           Créer client
-        </Button>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -138,18 +133,14 @@ export const Clients: React.FC = () => {
                   <span className="truncate">{client.email || '—'}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Phone size={12} className="text-[#94a3b8]" />
-                  <span>{client.phone}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
                   <Building size={12} className="text-[#94a3b8]" />
-                  <span>MF : <span className="font-mono font-bold">{client.taxId}</span></span>
+                  <span>MF : <span className="font-mono font-bold">{client.taxId || '—'}</span></span>
                 </div>
                 <div className="flex items-start gap-1.5">
                   <MapPin size={12} className="text-[#94a3b8] mt-0.5" />
                   <div>
-                    <div>{client.address}</div>
-                    <div>{client.city}</div>
+                    {client.address && <div>{client.address}</div>}
+                    {client.city && <div>{client.city}</div>}
                     <div className="flex items-center gap-1 mt-0.5">
                       <Globe size={10} className="text-[#94a3b8]" />
                       <span>{client.country || 'Tunisie'}</span>
@@ -158,27 +149,36 @@ export const Clients: React.FC = () => {
                 </div>
               </div>
 
+              {/* Stats : Factures + CA */}
               <div className="flex rounded-md overflow-hidden border border-[#e2e8f0] mt-3">
                 <div className="flex-1 py-2.5 text-center bg-[#f8fafc] border-r border-[#e2e8f0]">
-                  <div className="text-[15px] font-extrabold text-[#0f172a] font-mono">{client.factures}</div>
+                  <div className="text-[15px] font-extrabold text-[#0f172a] font-mono">
+                    {client.factures ?? 0}
+                  </div>
                   <div className="text-[9.5px] font-semibold uppercase tracking-wide text-[#94a3b8] mt-0.5">Factures</div>
                 </div>
                 <div className="flex-1 py-2.5 text-center bg-[#f8fafc]">
-                  <div className="text-[15px] font-extrabold text-[#0f172a] font-mono">{client.ca}</div>
-                  <div className="text-[9.5px] font-semibold uppercase tracking-wide text-[#94a3b8] mt-0.5">CA TND</div>
+                  <div className="text-[13px] font-extrabold text-[#0f172a] font-mono truncate px-1">
+                    {client.ca ?? '0.000'}
+                  </div>
+                  <div className="text-[9.5px] font-semibold uppercase tracking-wide text-[#94a3b8] mt-0.5 flex items-center justify-center gap-0.5">
+                    <TrendingUp size={8} /> CA TND
+                  </div>
                 </div>
               </div>
 
+              {/* Actions */}
               <div className="flex gap-1.5 mt-3.5 pt-3 border-t border-[#e2e8f0]">
                 <Button variant="secondary" size="sm" onClick={() => handleEmail(client.email, client.name)}>
                   <Mail size={12} /> Email
                 </Button>
-                <Button variant="secondary" size="sm" onClick={() => handleCall(client.phone, client.name)}>
-                  <PhoneCall size={12} /> Appeler
-                </Button>
-                <Button variant="primary" size="sm" className="ml-auto" onClick={() => handleInvoice(client)}>
+                <button
+                  style={{ backgroundColor: '#1C6AE4' }}
+                  className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11.5px] font-bold text-white cursor-pointer transition-all hover:opacity-90"
+                  onClick={() => handleInvoice(client)}
+                >
                   <FileText size={12} /> Facturer →
-                </Button>
+                </button>
               </div>
             </div>
           </div>

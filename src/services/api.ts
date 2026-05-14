@@ -18,7 +18,11 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     if (error.response?.status === 401) {
-      window.location.href = '/login';
+      // En dev, ne pas rediriger pour éviter une boucle infinie si le token expire
+      if (import.meta.env.PROD) {
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
     }
     if (error.response?.status === 500) {
       // Réessaie une seule fois après 500 ms

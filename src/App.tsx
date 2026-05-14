@@ -15,11 +15,6 @@ import { fetchInvoices } from './store/slices/invoicesSlice';
 import { fetchQuotations } from './store/slices/devisSlice';
 import { fetchClients } from './store/slices/clientsSlice';
 
-
-
-
-
-
 function App() {
   const dispatch = useDispatch<AppDispatch>();
   const currentPage = useSelector((state: RootState) => state.ui.currentPage);
@@ -27,18 +22,28 @@ function App() {
 
   const hasLoaded = useRef(false);
 
-useEffect(() => {
-  const timer = setTimeout(() => {
-    if (!hasLoaded.current) {
-      hasLoaded.current = true;
-      dispatch(fetchInvoices());
-      dispatch(fetchQuotations());
-      dispatch(fetchClients());
+  // Initialise le token depuis les variables d'environnement si absent du localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('access_token');
+    if (!stored) {
+      const envToken = import.meta.env.VITE_ACCESS_TOKEN;
+      if (envToken) {
+        localStorage.setItem('access_token', envToken);
+      }
     }
-  }, 1000); // attendre 1 seconde avant d’appeler l’API
+  }, []);
 
-  return () => clearTimeout(timer); // nettoyage si le composant est démonté
-}, [dispatch]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!hasLoaded.current) {
+        hasLoaded.current = true;
+        dispatch(fetchInvoices());
+        dispatch(fetchQuotations());
+        dispatch(fetchClients());
+      }
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [dispatch]);
 
   const renderPage = () => {
     switch (currentPage) {
@@ -50,21 +55,31 @@ useEffect(() => {
         return <Devis />;
       case 'clients':
         return <Clients />;
+      // ── Pages formulaire (remplacent les popups) ──
+      case 'nouvelle-facture':
+        return <InvoiceModal editData={null} />;
+      case 'modifier-facture':
+        return <InvoiceModal editData={modalData} />;
+      case 'nouveau-devis':
+        return <DevisModal editData={null} />;
+      case 'modifier-devis':
+        return <DevisModal editData={modalData} />;
       default:
         return <Dashboard />;
     }
   };
 
+  const isFullPage = ['nouvelle-facture', 'modifier-facture', 'nouveau-devis', 'modifier-devis'].includes(currentPage);
+
   return (
     <div className="module">
       <Toolbar />
-      <div className="mod-content">{renderPage()}</div>
+      <div className={isFullPage ? 'flex-1 flex flex-col overflow-hidden' : 'mod-content'}>
+        {renderPage()}
+      </div>
       <SideMenu />
       <Toast />
-
-      {/* Modals */}
-      {isModalOpen && modalType === 'invoice' && <InvoiceModal editData={modalData} />}
-      {isModalOpen && modalType === 'devis' && <DevisModal editData={modalData} />}
+      {/* Seul le modal client reste en popup */}
       {isModalOpen && modalType === 'client' && <ClientModal editData={modalData} />}
     </div>
   );

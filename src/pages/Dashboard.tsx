@@ -15,7 +15,7 @@ const RevenueChart: React.FC<{ data: number[]; labels: string[] }> = ({ data, la
   const max = Math.max(...data);
   const min = Math.min(...data);
   const range = max - min;
-  const height = 200;
+  const height = 120;
   const width = 600;
   
   const points = data.map((value, index) => {
@@ -59,12 +59,12 @@ const RevenueChart: React.FC<{ data: number[]; labels: string[] }> = ({ data, la
           })}
           <defs>
             <linearGradient id="areaGradNew" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.35" />
-              <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.02" />
+              <stop offset="0%" stopColor="#1C6AE4" stopOpacity="0.35" />
+              <stop offset="100%" stopColor="#1C6AE4" stopOpacity="0.02" />
             </linearGradient>
             <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#818cf8" />
-              <stop offset="100%" stopColor="#4f46e5" />
+              <stop offset="0%" stopColor="#5a9cf0" />
+              <stop offset="100%" stopColor="#1C6AE4" />
             </linearGradient>
           </defs>
           <polygon points={`0,${height} ${points} ${width},${height}`} fill="url(#areaGradNew)" />
@@ -76,8 +76,8 @@ const RevenueChart: React.FC<{ data: number[]; labels: string[] }> = ({ data, la
             const isMax = value === max;
             return (
               <g key={index}>
-                {isLast && <circle cx={x} cy={y} r="6" fill="#4f46e5" opacity="0.15" />}
-                <circle cx={x} cy={y} r={isMax ? 5 : (isLast ? 4 : 3)} fill={isMax ? '#4f46e5' : 'white'} stroke="#4f46e5" strokeWidth={isMax ? 2.5 : 2} className={isMax ? 'ring-2 ring-indigo-200' : ''} />
+                {isLast && <circle cx={x} cy={y} r="6" fill="#1C6AE4" opacity="0.15" />}
+                <circle cx={x} cy={y} r={isMax ? 5 : (isLast ? 4 : 3)} fill={isMax ? '#1C6AE4' : 'white'} stroke="#1C6AE4" strokeWidth={isMax ? 2.5 : 2} className={isMax ? 'ring-2 ring-indigo-200' : ''} />
               </g>
             );
           })}
@@ -87,7 +87,7 @@ const RevenueChart: React.FC<{ data: number[]; labels: string[] }> = ({ data, la
             const isMax = i === maxIndex;
             const isLast = i === labels.length - 1;
             return (
-              <span key={i} className={`text-[10px] font-medium transition-all ${isLast || isMax ? 'text-indigo-600 font-bold' : 'text-ink-3'}`}>
+              <span key={i} className={`text-[10px] font-medium transition-all ${isLast || isMax ? 'text-[#1C6AE4] font-bold' : 'text-ink-3'}`}>
                 {label}
                 {isMax && <span className="ml-1 text-[8px]">●</span>}
               </span>
@@ -107,10 +107,10 @@ const RevenueChart: React.FC<{ data: number[]; labels: string[] }> = ({ data, la
           <div className="text-[15px] font-bold text-ink-2">{Math.round(data.reduce((a,b) => a+b,0) / data.length).toLocaleString('fr-TN')}</div>
           <div className="text-[9px] text-ink-4">sur 12 mois</div>
         </div>
-        <div className="text-center p-2 rounded-lg bg-indigo-50">
-          <div className="text-[10px] text-indigo-600 uppercase tracking-wide">Maximum</div>
+        <div className="text-center p-2 rounded-lg bg-[#EFF6FF]">
+          <div className="text-[10px] text-[#1C6AE4] uppercase tracking-wide">Maximum</div>
           <div className="text-[15px] font-bold text-accent">{Math.round(max).toLocaleString('fr-TN')}</div>
-          <div className="text-[9px] text-indigo-500">en {maxLabel}</div>
+          <div className="text-[9px] text-[#1C6AE4]">en {maxLabel}</div>
         </div>
         <div className="text-center p-2 rounded-lg bg-emerald-50">
           <div className="text-[10px] text-emerald-600 uppercase tracking-wide">Croissance</div>
@@ -153,7 +153,6 @@ export const Dashboard: React.FC = () => {
   // Variable clients supprimée car non utilisée
   
   const [period, setPeriod] = useState('12m');
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const paidInvoices = invoices.filter(i => i.status === 'PAID');
@@ -169,7 +168,7 @@ export const Dashboard: React.FC = () => {
   const averagePaymentDays = 14;
   
   const clientRevenue = [
-    { name: 'TechCorp SARL', amount: 18400, color: '#4f46e5', percent: 43, growth: '+23%' },
+    { name: 'TechCorp SARL', amount: 18400, color: '#1C6AE4', percent: 43, growth: '+23%' },
     { name: 'Avocats Associés', amount: 12600, color: '#7c3aed', percent: 29, growth: '+15%' },
     { name: 'StartupHub Tunisia', amount: 7200, color: '#059669', percent: 17, growth: '+42%' },
     { name: 'Digital Solutions', amount: 4500, color: '#d97706', percent: 11, growth: '+8%' },
@@ -215,22 +214,15 @@ export const Dashboard: React.FC = () => {
     }, 1000);
   };
 
-  const handleExport = (format: string) => {
-    console.log(`Export en ${format}`);
-    setShowExportMenu(false);
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => { window.print(); };
 
   return (
-    <div>
+    <div className="text-[13px]">
       {/* Header avec actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div>
-          <h1 className="text-xl font-black text-ink">Tableau de bord</h1>
-          <p className="text-[12px] text-ink-4 mt-0.5">Vue d'ensemble de votre activité</p>
+          <h1 className="text-base font-black text-ink">Tableau de bord</h1>
+          <p className="text-[11px] text-ink-4 mt-0.5">Vue d'ensemble de votre activité</p>
         </div>
         <div className="flex items-center gap-2">
           <PeriodSelector value={period} onChange={setPeriod} />
@@ -241,27 +233,18 @@ export const Dashboard: React.FC = () => {
           >
             <RefreshCw size={14} className="text-ink-4" />
           </button>
-          <div className="relative">
-            <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
+          <button
+              onClick={handlePrint}
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent text-white text-[12px] font-bold hover:bg-accent-hover transition-all"
             >
               <Download size={14} />
-              Exporter
+              Exporter PDF
             </button>
-            {showExportMenu && (
-              <div className="absolute right-0 top-full mt-2 w-40 bg-white rounded-xl shadow-lg border border-border z-20 overflow-hidden">
-                <button onClick={() => handleExport('PDF')} className="w-full px-4 py-2 text-left text-[12px] hover:bg-surface-2 transition-colors">📄 Exporter en PDF</button>
-                <button onClick={() => handleExport('EXCEL')} className="w-full px-4 py-2 text-left text-[12px] hover:bg-surface-2 transition-colors">📊 Exporter en Excel</button>
-                <button onClick={handlePrint} className="w-full px-4 py-2 text-left text-[12px] hover:bg-surface-2 transition-colors">🖨️ Imprimer</button>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* KPIs - 4 cartes (suppression de "Clients actifs") */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+      {/* KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
         <KpiCard label="CA mensuel (payé)" value={`${formatAmount(monthlyCA)} TND`} icon={<TrendingUp size={17} />} color="indigo" trend={{ value: 12.4, isUp: true }} footer="vs mois dernier" />
         <KpiCard label="Factures payées" value={totalPaid.toString()} icon={<CheckCircle size={17} />} color="green" footer={`sur ${totalInvoices} factures`} />
         <KpiCard label="En attente" value={pendingInvoices.length.toString()} icon={<Clock size={17} />} color="amber" footer={`${formatAmount(pendingAmount)} TND`} />
@@ -269,7 +252,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 mb-5">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-3 mb-3">
         <Card padding>
           <CardHeader>
             <div>
@@ -314,7 +297,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Clients + Alerte (sans le bouton "Relancer les impayés") */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
         <Card padding>
           <CardHeader>
             <div>
@@ -386,14 +369,14 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* 3ème ligne KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
         <KpiCard label="Taux de recouvrement" value={`${paymentRate}%`} icon={<Shield size={17} />} color="teal" footer="Factures payées / émises" />
         <KpiCard label="Devis convertis" value={`${conversionRate}%`} icon={<FileText size={17} />} color="green" footer={`${convertedDevis.length} / ${devis.length} devis`} />
         <KpiCard label="Brouillons" value={draftInvoices.length.toString()} icon={<AlertTriangle size={17} />} color="red" footer="À émettre rapidement" />
       </div>
 
       {/* Conversions */}
-      <Card padding className="mb-5">
+      <Card padding className="mb-3">
         <CardHeader>
           <div>
             <CardTitle>Devis convertis en factures</CardTitle>

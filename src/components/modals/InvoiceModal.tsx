@@ -2,363 +2,500 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useAppDispatch, RootState } from '../../store';
-import {
-  X, Plus, Trash2, Building2, FileText, DownloadCloud, CheckCircle,
-  Sparkles, Calculator, Settings, Upload, RefreshCw
-} from 'lucide-react';
+import { ArrowLeft, CheckCircle, Plus, Minus, Upload, Sparkles, RefreshCw } from 'lucide-react';
 import { createInvoice, editInvoice } from '../../store/slices/invoicesSlice';
 import { fetchClients } from '../../store/slices/clientsSlice';
-import { closeModal, addToast } from '../../store/slices/uiSlice';
+import { addToast, setCurrentPage } from '../../store/slices/uiSlice';
 import { Client, Invoice, LineItem } from '../../types';
+import api from '../../services/api';
 
-const currencies = [
-  { code: 'TND', symbol: 'DT', name: 'Dinar Tunisien', country: '🇹🇳' },
-  { code: 'EUR', symbol: '€', name: 'Euro', country: '🇪🇺' },
-  { code: 'USD', symbol: '$', name: 'Dollar US', country: '🇺🇸' },
-];
+const CURRENCIES: Record<string, { symbol: string; label: string }> = {
+  TND: { symbol: 'DT', label: 'Dinar Tunisien (TND)' },
+  DZD: { symbol: 'DA', label: 'Dinar Algerien (DZD)' },
+  MAD: { symbol: 'DH', label: 'Dirham Marocain (MAD)' },
+  LYD: { symbol: 'LD', label: 'Dinar Libyen (LYD)' },
+  EGP: { symbol: 'E£', label: 'Livre Egyptienne (EGP)' },
+  SAR: { symbol: 'SR', label: 'Riyal Saoudien (SAR)' },
+  AED: { symbol: 'AED', label: 'Dirham Emirats (AED)' },
+  EUR: { symbol: '€', label: 'Euro (EUR)' },
+  USD: { symbol: '$', label: 'Dollar US (USD)' },
+};
 
 const DEFAULT_COMPANY = {
   name: 'E-Tafakna',
-  logo: null,
   address: 'Immeuble Noomix, 5ème étage, Rue du Lac Huron, Les Berges du Lac, 1053 Tunis',
   phone: '+216 70 000 000',
   email: 'contact@etafakna.com',
   taxId: '1234567X',
-  iban: 'TN59 1000 1234 5678 9012 3456'
+  rib: '',
+  iban: 'TN59 1000 1234 5678 9012 3456',
 };
 
-// Composant de prévisualisation (inchangé)
-const InvoicePreview: React.FC<{ formData: any; totals: any; companyLogo?: string; companyName?: string }> = ({ formData, totals, companyLogo, companyName }) => {
-  const getCurrencySymbol = () => currencies.find(c => c.code === formData.currency)?.symbol || 'DT';
-  const formatAmount = (n: number) => n.toFixed(3);
-  const displayCompanyName = companyName || DEFAULT_COMPANY.name;
-  const displayCompanyLogo = companyLogo || DEFAULT_COMPANY.logo;
-
-  return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-      <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-        <div className="flex justify-between items-start">
-          <div className="flex items-center gap-4">
-            {displayCompanyLogo ? <img src={displayCompanyLogo} alt="Logo" className="h-12 w-auto object-contain" /> : <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center text-accent font-bold text-xl">E</div>}
-            <div><h2 className="text-xl font-bold text-gray-800">{displayCompanyName}</h2><p className="text-xs text-gray-500 mt-1">{DEFAULT_COMPANY.address}</p><p className="text-xs text-gray-500">Tél : {DEFAULT_COMPANY.phone} | Email : {DEFAULT_COMPANY.email}</p><p className="text-xs text-gray-500">Matricule fiscal : {DEFAULT_COMPANY.taxId}</p></div>
-          </div>
-          <div className="text-right"><h1 className="text-2xl font-bold text-accent">FACTURE</h1><p className="text-sm text-gray-500 mt-1">N° {formData.invoiceNumber}</p></div>
-        </div>
-      </div>
-      <div className="px-6 py-3 bg-gray-50 border-b border-gray-200 flex justify-between text-sm">
-        <div><span className="font-semibold">Date d'émission :</span> {formData.date || '—'}<br /><span className="font-semibold">Date d'échéance :</span> {formData.dueDate || '—'}</div>
-        <div className="text-right"><span className="font-semibold">Mode de paiement :</span> Virement bancaire<br /><span className="font-semibold">IBAN :</span> {DEFAULT_COMPANY.iban}</div>
-      </div>
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="font-bold text-gray-700 mb-2">Facturé à :</h3>
-        <p className="font-semibold">{formData.clientName || 'Client'}</p><p className="text-sm text-gray-600">{formData.clientCo}</p><p className="text-sm text-gray-600">{formData.clientAddress}</p>
-        <div className="mt-1 text-sm text-gray-500"><p>Email : {formData.clientEmail || '—'}</p><p>Tél : {formData.clientPhone || '—'}</p><p>Matricule fiscal : {formData.clientTaxId || '—'}</p></div>
-      </div>
-      <div className="px-6 py-4">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100"><tr><th className="py-2 text-left">Description</th><th className="py-2 text-center w-16">Qté</th><th className="py-2 text-right w-24">Prix unit. HT</th><th className="py-2 text-right w-24">TVA %</th><th className="py-2 text-right w-28">Total HT</th></tr></thead>
-          <tbody>
-            {formData.items.map((item: LineItem, idx: number) => (
-              <tr key={idx} className="border-b border-gray-100"><td className="py-2">{item.description || '—'}</td><td className="py-2 text-center">{item.quantity}</td><td className="py-2 text-right">{item.unitPrice.toFixed(3)} {getCurrencySymbol()}</td><td className="py-2 text-right">{formData.enableTva ? item.vatRate : 0}%</td><td className="py-2 text-right font-mono">{(item.quantity * item.unitPrice).toFixed(3)} {getCurrencySymbol()}</td></tr>
-            ))}
-            {formData.items.length === 0 && <tr><td colSpan={5} className="py-4 text-center text-gray-400">Aucun article</td></tr>}
-          </tbody>
-        </table>
-      </div>
-      <div className="px-6 py-4 border-t border-gray-200">
-        <div className="flex justify-end"><div className="w-64 space-y-1 text-sm">
-          <div className="flex justify-between"><span>Total HT</span><span className="font-mono">{formatAmount(totals.ht)} {getCurrencySymbol()}</span></div>
-          {formData.enableTva && <div className="flex justify-between"><span>TVA ({formData.taxRate}%)</span><span className="font-mono">{formatAmount(totals.tvaAmount)} {getCurrencySymbol()}</span></div>}
-          {formData.enableTimbre && <div className="flex justify-between"><span>Timbre fiscal</span><span className="font-mono">{formatAmount(totals.timbreAmount)} {getCurrencySymbol()}</span></div>}
-          <div className="flex justify-between font-bold text-base pt-2 border-t border-gray-200"><span>Total TTC</span><span className="text-accent">{formatAmount(totals.ttc)} {getCurrencySymbol()}</span></div>
-        </div></div>
-      </div>
-      {formData.notes && <div className="px-6 py-3 bg-gray-50 text-sm text-gray-600 border-t border-gray-200"><p className="font-semibold">Notes :</p><p>{formData.notes}</p></div>}
-      <div className="px-6 py-2 text-center text-xs text-gray-400 border-t border-gray-200">Merci de votre confiance — Paiement à réception sous 30 jours.</div>
-    </div>
-  );
-};
-
-interface InvoiceModalProps {
-  editData?: Invoice | null;
+interface VisibilityState {
+  companyAddress: boolean; companyPhone: boolean; companyEmail: boolean;
+  companyTaxId: boolean; companyRib: boolean; companyIban: boolean;
+  clientSiret: boolean; clientAddress: boolean; clientEmail: boolean;
+  clientPhone: boolean; dueDate: boolean; notes: boolean;
 }
+
+interface InvoiceModalProps { editData?: Invoice | null; }
 
 const InvoiceModal: React.FC<InvoiceModalProps> = ({ editData }) => {
   const dispatch = useAppDispatch();
   const clients = useSelector((state: RootState) => state.clients) as Client[];
   const modalData = useSelector((state: RootState) => state.ui.modalData);
-  
-  const [companyName, setCompanyName] = useState(DEFAULT_COMPANY.name);
-  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const isRealInvoiceEdit = !!(editData && (editData.invoiceNumber || editData.status || editData.issueDate));
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [companyLogo, setCompanyLogo] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState(DEFAULT_COMPANY.name);
+  const [companyAddress, setCompanyAddress] = useState(DEFAULT_COMPANY.address);
+  const [companyPhone, setCompanyPhone] = useState(DEFAULT_COMPANY.phone);
+  const [companyEmail, setCompanyEmail] = useState(DEFAULT_COMPANY.email);
+  const [companyTaxId, setCompanyTaxId] = useState(DEFAULT_COMPANY.taxId);
+  const [companyRib, setCompanyRib] = useState(DEFAULT_COMPANY.rib);
+  const [companyIban, setCompanyIban] = useState(DEFAULT_COMPANY.iban);
   const [fiscalMode, setFiscalMode] = useState<'manuel' | 'auto'>('manuel');
-
+  const [fiscalAnalysis, setFiscalAnalysis] = useState<any>(null);
+  const [fiscalLoading, setFiscalLoading] = useState(false);
   const [loadingClients, setLoadingClients] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [visibility, setVisibility] = useState<VisibilityState>({
+    companyAddress: true, companyPhone: true, companyEmail: true,
+    companyTaxId: true, companyRib: false, companyIban: true,
+    clientSiret: true, clientAddress: true, clientEmail: false,
+    clientPhone: false, dueDate: true, notes: false,
+  });
+  const toggle = (key: keyof VisibilityState) => setVisibility(prev => ({ ...prev, [key]: !prev[key] }));
+  const [formData, setFormData] = useState({
+    id: '', invoiceNumber: '', date: new Date().toISOString().split('T')[0], dueDate: '',
+    clientId: '', clientName: '', clientCo: '', clientEmail: '', clientPhone: '',
+    clientAddress: '', clientTaxId: '', items: [] as LineItem[],
+    taxRate: 19, enableTva: true, variableTva: false, enableTimbre: false, timbreValue: 1,
+    currency: 'TND', notes: '',
+    extraTaxes: [] as { id: string; label: string; rate: number }[],
+  });
+  const generateInvoiceNumber = () => `FAC-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
 
-  // 🔥 Chargement fiable des clients (un seul appel, avec gestion d'erreur)
   useEffect(() => {
     setLoadingClients(true);
-    dispatch(fetchClients())
-      .unwrap()
-      .catch((err) => console.error('Erreur chargement clients', err))
-      .finally(() => setLoadingClients(false));
+    dispatch(fetchClients()).unwrap().catch(() => {}).finally(() => setLoadingClients(false));
   }, [dispatch]);
 
-  const [formData, setFormData] = useState({
-    id: '',
-    invoiceNumber: '',
-    date: new Date().toISOString().split('T')[0],
-    dueDate: '',
-    clientId: '',
-    clientName: '',
-    clientCo: '',
-    clientEmail: '',
-    clientPhone: '',
-    clientAddress: '',
-    clientTaxId: '',
-    items: [] as LineItem[],
-    taxRate: 19,
-    enableTva: true,
-    variableTva: false,
-    enableTimbre: false,
-    currency: 'TND',
-    notes: '',
-  });
-
-  const generateInvoiceNumber = () => `FAC-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000)}`;
-
-  // Chargement des données (édition ou préremplissage client)
   useEffect(() => {
-    if (editData) {
-      const client = clients.find(c => c.name === editData.client);
-      setFormData({
-        id: editData.id,
-        invoiceNumber: editData.id,
-        date: editData.issueDate,
-        dueDate: editData.dueDate,
-        clientId: client?.id || '',
-        clientName: editData.client,
-        clientCo: editData.co,
-        clientEmail: client?.email || '',
-        clientPhone: client?.phone || '',
-        clientAddress: client?.address || '',
-        clientTaxId: client?.taxId || '',
-        items: editData.lines || [],
-        taxRate: 19,
-        enableTva: true,
-        variableTva: false,
-        enableTimbre: false,
-        currency: 'TND',
-        notes: editData.notes || '',
-      });
-    } else if (modalData && modalData.clientName) {
-      setFormData({
-        id: '',
-        invoiceNumber: generateInvoiceNumber(),
-        date: new Date().toISOString().split('T')[0],
-        dueDate: '',
-        clientId: modalData.clientId || '',
-        clientName: modalData.clientName || '',
-        clientCo: modalData.clientCo || '',
-        clientEmail: modalData.clientEmail || '',
-        clientPhone: modalData.clientPhone || '',
-        clientAddress: modalData.clientAddress || '',
-        clientTaxId: modalData.clientTaxId || '',
-        items: [],
-        taxRate: 19,
-        enableTva: true,
-        variableTva: false,
-        enableTimbre: false,
-        currency: 'TND',
-        notes: '',
-      });
+    const isReal = editData && (editData.invoiceNumber || editData.status || editData.issueDate);
+    if (isReal) {
+      const client = clients.find(c => c.name === editData!.client);
+      setFormData({ id: editData!.id, invoiceNumber: editData!.invoiceNumber || editData!.id, date: editData!.issueDate, dueDate: editData!.dueDate, clientId: client?.id || '', clientName: editData!.client, clientCo: editData!.co, clientEmail: client?.email || '', clientPhone: client?.phone || '', clientAddress: client?.address || '', clientTaxId: client?.taxId || '', items: editData!.lines || [], taxRate: 19, enableTva: true, variableTva: false, enableTimbre: false, timbreValue: 1, currency: editData!.currency || 'TND', notes: editData!.notes || '', extraTaxes: [] });
+    } else if (modalData?.clientName) {
+      setFormData({ id: '', invoiceNumber: generateInvoiceNumber(), date: new Date().toISOString().split('T')[0], dueDate: '', clientId: modalData.clientId || '', clientName: modalData.clientName || '', clientCo: modalData.clientCo || '', clientEmail: modalData.clientEmail || '', clientPhone: modalData.clientPhone || '', clientAddress: modalData.clientAddress || '', clientTaxId: modalData.clientTaxId || '', items: [], taxRate: 19, enableTva: true, variableTva: false, enableTimbre: false, timbreValue: 1, currency: 'TND', notes: '', extraTaxes: [] });
     } else {
       setFormData(prev => ({ ...prev, invoiceNumber: generateInvoiceNumber() }));
     }
   }, [editData, modalData, clients]);
 
-  // Mise à jour manuelle du client via select
   useEffect(() => {
-    if (formData.clientId && !editData && !modalData?.clientName) {
+    const isReal = editData && (editData.invoiceNumber || editData.status || editData.issueDate);
+    if (formData.clientId && !isReal && !modalData?.clientName) {
       const client = clients.find(c => c.id === formData.clientId);
-      if (client) {
-        setFormData(prev => ({ ...prev, clientName: client.name, clientCo: client.co, clientEmail: client.email || '', clientPhone: client.phone, clientAddress: client.address, clientTaxId: client.taxId }));
-      }
+      if (client) setFormData(prev => ({ ...prev, clientName: client.name, clientCo: client.co, clientEmail: client.email || '', clientPhone: client.phone, clientAddress: client.address, clientTaxId: client.taxId }));
     }
   }, [formData.clientId, clients, editData, modalData]);
 
-  const addItem = () => {
-    const newItem: LineItem = { id: Date.now().toString(), description: '', quantity: 1, unitPrice: 0, vatRate: 'NINETEEN', lineTotal: 0 };
-    setFormData(prev => ({ ...prev, items: [...prev.items, newItem] }));
-  };
-  const updateItem = (index: number, field: keyof LineItem, value: any) => {
-    const newItems = [...formData.items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    newItems[index].lineTotal = newItems[index].quantity * newItems[index].unitPrice;
-    setFormData(prev => ({ ...prev, items: newItems }));
-  };
-  const removeItem = (index: number) => setFormData(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
+  useEffect(() => {
+    if (fiscalMode !== 'auto') return;
+    if (!formData.clientId && formData.items.length === 0) return;
+    const timer = setTimeout(async () => {
+      setFiscalLoading(true);
+      try {
+        const res = await api.post('/invoices/fiscal-preview', { clientId: formData.clientId || null, items: formData.items.map(i => ({ description: i.description, quantity: i.quantity, unitPrice: i.unitPrice })), description: formData.notes });
+        const d = res.data.data;
+        setFiscalAnalysis(d);
+        setFormData(prev => ({ ...prev, taxRate: d.tvaRate, enableTva: d.tvaRate > 0, enableTimbre: d.timbreAmount > 0, currency: d.detectedCurrency || prev.currency }));
+      } catch { } finally { setFiscalLoading(false); }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [fiscalMode, formData.clientId, formData.items, formData.notes]);
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) { const reader = new FileReader(); reader.onloadend = () => setCompanyLogo(reader.result as string); reader.readAsDataURL(file); }
-  };
-
-  const calculateTotals = () => {
-    const ht = formData.items.reduce((sum, item) => sum + item.lineTotal, 0);
-    const tvaAmount = formData.enableTva ? ht * (formData.taxRate / 100) : 0;
-    const timbreAmount = formData.enableTimbre ? 1 : 0;
-    const ttc = ht + tvaAmount + timbreAmount;
-    return { ht, tvaAmount, timbreAmount, ttc };
-  };
-  const totals = calculateTotals();
-
- const handleSave = async () => {
-  if (!formData.clientId) {
-    dispatch(addToast({ message: '⚠️ Veuillez sélectionner un client', type: 'error' }));
-    return;
-  }
-  if (formData.items.length === 0 || formData.items.every(i => i.lineTotal === 0)) {
-    dispatch(addToast({ message: '⚠️ Ajoutez au moins un article', type: 'error' }));
-    return;
-  }
-
-  // Construire l'objet attendu par le backend
-  const invoicePayload = {
-    clientId: formData.clientId,
-    issueDate: formData.date,
-    dueDate: formData.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    currency: formData.currency || 'TND',
-    notes: formData.notes || null,
-    lines: formData.items.map(item => ({
-      description: item.description,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      vatRate: item.vatRate,
-    })),
-  };
-
-  console.log('📤 Envoi facture :', invoicePayload);
-
-  try {
-    if (editData) {
-      await dispatch(editInvoice({ id: formData.id, ...invoicePayload } as any)).unwrap();
-      dispatch(addToast({ message: '✅ Facture modifiée', type: 'success' }));
-    } else {
-      await dispatch(createInvoice(invoicePayload as any)).unwrap();
-      dispatch(addToast({ message: '✅ Facture créée', type: 'success' }));
+  const addItem = () => setFormData(prev => ({ ...prev, items: [...prev.items, { id: Date.now().toString(), description: '', quantity: 1, unitPrice: 0, vatRate: 'NINETEEN' as any, lineTotal: 0 }] }));
+  const updateItem = (idx: number, field: keyof LineItem, value: any) => { const items = [...formData.items]; items[idx] = { ...items[idx], [field]: value }; items[idx].lineTotal = items[idx].quantity * items[idx].unitPrice; setFormData(prev => ({ ...prev, items })); };
+  const removeItem = (idx: number) => setFormData(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== idx) }));
+  const totals = (() => {
+    const ht = formData.items.reduce((s, i) => s + i.lineTotal, 0);
+    let tvaAmount = 0;
+    if (formData.variableTva) {
+      tvaAmount = formData.items.reduce((s, i) => {
+        const rate = typeof i.vatRate === 'number' ? i.vatRate : 19;
+        return s + i.lineTotal * rate / 100;
+      }, 0);
+    } else if (formData.enableTva) {
+      tvaAmount = ht * formData.taxRate / 100;
     }
-    dispatch(closeModal());
-  } catch (error: any) {
-    // Affiche l’erreur serveur complète
-    const serverMessage =
-      error?.response?.data?.error?.message ||
-      error?.response?.data?.error ||
-      error?.message ||
-      'Erreur inconnue';
-    console.error('❌ Erreur complète :', error);
-    dispatch(addToast({ message: `❌ ${serverMessage}`, type: 'error' }));
-  }
-};
+    const timbreAmount = formData.enableTimbre ? formData.timbreValue : 0;
+    const extraTotal = formData.extraTaxes.reduce((s, t) => s + ht * t.rate / 100, 0);
+    return { ht, tvaAmount, timbreAmount, extraTotal, ttc: ht + tvaAmount + timbreAmount + extraTotal };
+  })();
+  const sym = CURRENCIES[formData.currency]?.symbol || formData.currency;
+  const fmt = (n: number) => n.toFixed(3);
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { const r = new FileReader(); r.onloadend = () => setCompanyLogo(r.result as string); r.readAsDataURL(file); } };
 
-  const handleDownloadPDF = () => dispatch(addToast({ message: '📄 Téléchargement PDF démarré', type: 'info' }));
-  const getCurrencySymbol = () => currencies.find(c => c.code === formData.currency)?.symbol || 'DT';
+  const handleSave = async () => {
+    if (!formData.clientId) { dispatch(addToast({ message: 'Veuillez sélectionner un client', type: 'error' })); return; }
+    if (formData.items.length === 0) { dispatch(addToast({ message: 'Ajoutez au moins un article', type: 'error' })); return; }
+    setSaving(true);
+    const payload = { clientId: formData.clientId, invoiceNumber: formData.invoiceNumber || undefined, issueDate: formData.date, dueDate: formData.dueDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0], currency: formData.currency || 'TND', notes: formData.notes || null, lines: formData.items.map(item => ({ description: item.description, quantity: item.quantity, unitPrice: item.unitPrice, vatRate: item.vatRate })) };
+    try {
+      if (isRealInvoiceEdit) { await dispatch(editInvoice({ id: formData.id, ...payload } as any)).unwrap(); dispatch(addToast({ message: 'Facture modifiée', type: 'success' })); }
+      else { await dispatch(createInvoice(payload as any)).unwrap(); dispatch(addToast({ message: 'Facture créée', type: 'success' })); }
+      dispatch(setCurrentPage('factures'));
+    } catch (error: any) {
+      dispatch(addToast({ message: error?.response?.data?.error?.message || error?.message || 'Erreur inconnue', type: 'error' }));
+    } finally { setSaving(false); }
+  };
+  // Switch helper
+  const Sw = ({ on, onToggle, disabled = false }: { on: boolean; onToggle: () => void; disabled?: boolean }) => (
+    <button type="button" onClick={onToggle} disabled={disabled}
+      className={`relative w-10 h-6 rounded-full transition-colors flex-shrink-0 ${on ? 'bg-[#1C6AE4]' : 'bg-gray-600'} ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}>
+      <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${on ? 'translate-x-4' : 'translate-x-0'}`} />
+    </button>
+  );
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen px-4 py-8">
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => dispatch(closeModal())} />
-        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-7xl mx-auto max-h-[90vh] flex flex-col overflow-hidden">
-          <div className="sticky top-0 bg-white z-10 border-b border-gray-100 px-6 py-4 flex justify-between items-center flex-shrink-0">
-            <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-xl bg-gradient-to-r from-accent to-purple-600 flex items-center justify-center"><FileText className="w-5 h-5 text-white" /></div><div><h2 className="text-xl font-bold text-gray-800">{editData ? 'Modifier la facture' : 'Nouvelle facture'}</h2><p className="text-xs text-gray-500">{formData.invoiceNumber}</p></div></div>
-            <button onClick={() => dispatch(closeModal())} className="p-2 hover:bg-gray-100 rounded-full transition"><X className="w-5 h-5 text-gray-500" /></button>
+    <div className="h-full bg-gray-100 flex flex-col overflow-hidden">
+      {/* Top bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-3 flex-shrink-0 shadow-sm">
+        <button onClick={() => dispatch(setCurrentPage('factures'))} className="p-2 hover:bg-gray-100 rounded-lg transition">
+          <ArrowLeft className="w-5 h-5 text-gray-500" />
+        </button>
+        <div className="flex-1">
+          <h1 className="text-base font-bold text-gray-800">{isRealInvoiceEdit ? 'Modifier la facture' : 'Nouvelle facture'}</h1>
+          <p className="text-xs text-gray-400">{formData.invoiceNumber}</p>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 px-6 py-2 rounded-xl bg-[#1C6AE4] hover:bg-[#1555C8] disabled:opacity-50 text-white text-sm font-bold shadow-md shadow-blue-200 transition"
+        >
+          <CheckCircle className="w-4 h-4" />
+          {saving ? 'Enregistrement...' : isRealInvoiceEdit ? 'Enregistrer la facture' : 'Générer la facture'}
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* LEFT PANEL */}
+        <div style={{ width: '320px', minWidth: '320px' }} className="bg-gray-950 flex flex-col flex-shrink-0">
+          <div className="px-5 pt-5 pb-4 border-b border-white/5">
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">Configuration</p>
+            <h2 className="text-white font-bold text-sm">{isRealInvoiceEdit ? 'Modifier' : 'Nouvelle facture'}</h2>
           </div>
-          <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto">
-            <div className="lg:w-1/2 p-6 overflow-y-auto border-r border-gray-100 space-y-6">
-              <div className="space-y-3">
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Raison sociale</label>
-                <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm" />
-                <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-accent/50 transition cursor-pointer" onClick={() => logoInputRef.current?.click()}>
-                  {companyLogo ? <img src={companyLogo} alt="Logo" className="h-16 mx-auto object-contain" /> : <><Upload className="w-8 h-8 text-gray-400 mx-auto mb-1" /><p className="text-sm text-gray-400">Cliquez pour ajouter votre logo</p></>}
-                  <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
-                </div>
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Client</p>
+              <select value={formData.clientId} onChange={e => setFormData(p => ({ ...p, clientId: e.target.value }))} disabled={loadingClients}
+                className="w-full px-3 py-2.5 bg-gray-800 border border-white/10 rounded-xl text-sm text-white outline-none focus:border-[#1C6AE4] transition cursor-pointer">
+                <option value="">{loadingClients ? 'Chargement...' : 'Sélectionner...'}</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Devise</p>
+              <select value={formData.currency} onChange={e => setFormData(p => ({ ...p, currency: e.target.value }))} disabled={fiscalMode === 'auto'}
+                className={`w-full px-3 py-2.5 bg-gray-800 border border-white/10 rounded-xl text-sm text-white outline-none focus:border-[#1C6AE4] transition cursor-pointer ${fiscalMode === 'auto' ? 'opacity-40' : ''}`}>
+                {Object.entries(CURRENCIES).map(([code, d]) => <option key={code} value={code}>{d.symbol} — {d.label}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Fiscal</p>
+              {/* Moteur — en haut du bloc */}
+              <div className="grid grid-cols-2 gap-1.5 mb-3">
+                <button onClick={() => { setFiscalMode('manuel'); setFiscalAnalysis(null); }}
+                  className={`py-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 ${fiscalMode === 'manuel' ? 'bg-[#1C6AE4] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-600'}`}>
+                  <RefreshCw className="w-3 h-3" /> Manuel
+                </button>
+                <button onClick={() => setFiscalMode('auto')}
+                  className={`py-2 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1 ${fiscalMode === 'auto' ? 'bg-[#1C6AE4] text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-600'}`}>
+                  <Sparkles className="w-3 h-3" /> Auto IA
+                </button>
               </div>
-              <div className="space-y-3">
-                <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2"><Building2 className="w-4 h-4" /> Client</h3>
-                <select
-                  value={formData.clientId}
-                  onChange={(e) => setFormData(prev => ({ ...prev, clientId: e.target.value }))}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:border-accent"
-                  disabled={loadingClients}
-                >
-                  <option value="">
-                    {loadingClients ? '⏳ Chargement des clients...' : '— Sélectionner un client —'}
-                  </option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>
-                      {client.name} — {client.city || ''} {client.co ? `(${client.co})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <input type="text" value={formData.clientName} onChange={(e) => setFormData(prev => ({ ...prev, clientName: e.target.value }))} placeholder="Nom du client" className="w-full px-4 py-2 border rounded-lg text-sm" />
-                <input type="text" value={formData.clientTaxId} onChange={(e) => setFormData(prev => ({ ...prev, clientTaxId: e.target.value }))} placeholder="Matricule fiscal" className="w-full px-4 py-2 border rounded-lg text-sm" />
-                <textarea rows={2} value={formData.clientAddress} onChange={(e) => setFormData(prev => ({ ...prev, clientAddress: e.target.value }))} placeholder="Adresse" className="w-full px-4 py-2 border rounded-lg text-sm resize-none" />
-                <div className="grid grid-cols-2 gap-2">
-                  <input type="email" value={formData.clientEmail} onChange={(e) => setFormData(prev => ({ ...prev, clientEmail: e.target.value }))} placeholder="Email" className="px-4 py-2 border rounded-lg text-sm" />
-                  <input type="tel" value={formData.clientPhone} onChange={(e) => setFormData(prev => ({ ...prev, clientPhone: e.target.value }))} placeholder="Téléphone" className="px-4 py-2 border rounded-lg text-sm" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div><label className="block text-xs font-semibold text-gray-500 mb-1">Date de facture</label><input type="date" value={formData.date} onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))} className="w-full px-4 py-2 border rounded-lg text-sm" /></div>
-                <div><label className="block text-xs font-semibold text-gray-500 mb-1">Date d'échéance</label><input type="date" value={formData.dueDate} onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))} className="w-full px-4 py-2 border rounded-lg text-sm" /></div>
-              </div>
-              <div>
-                <div className="flex justify-between items-center mb-2"><h3 className="text-sm font-bold text-gray-700">Articles & services</h3><button onClick={addItem} className="flex items-center gap-1 text-accent text-sm"><Plus className="w-4 h-4" /> Ajouter</button></div>
-                <div className="space-y-2">
-                  {formData.items.map((item, idx) => (
-                    <div key={item.id} className="flex gap-2 items-center bg-gray-50 p-2 rounded-lg">
-                      <input type="text" value={item.description} onChange={(e) => updateItem(idx, 'description', e.target.value)} placeholder="Description" className="flex-1 px-2 py-1 border rounded text-sm" />
-                      <input type="number" value={item.quantity} onChange={(e) => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)} className="w-16 px-2 py-1 border rounded text-sm text-center" />
-                      <input type="number" value={item.unitPrice} onChange={(e) => updateItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)} className="w-24 px-2 py-1 border rounded text-sm text-right" />
-                      <span className="text-sm font-mono w-20 text-right">{(item.quantity * item.unitPrice).toFixed(3)} {getCurrencySymbol()}</span>
-                      <button onClick={() => removeItem(idx)} className="text-red-400"><Trash2 className="w-4 h-4" /></button>
+
+              {/* Switches — visibles seulement en mode Manuel */}
+              {fiscalMode === 'manuel' && (
+                <div className="space-y-0">
+                  {/* TVA / TVA par ligne — mutuellement exclusifs */}
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 transition cursor-pointer" onClick={() => setFormData(p => ({ ...p, enableTva: true, variableTva: false }))}>
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition ${formData.enableTva && !formData.variableTva ? 'border-[#1C6AE4] bg-[#1C6AE4]' : 'border-gray-500'}`}>
+                      {formData.enableTva && !formData.variableTva && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                    <span className="text-sm text-gray-300 flex-1">TVA globale</span>
+                  </div>
+                  {formData.enableTva && !formData.variableTva && (
+                    <div className="flex items-center justify-between px-3 py-1.5 ml-4">
+                      <span className="text-sm text-gray-400">Taux</span>
+                      <div className="flex items-center gap-1">
+                        <input type="number" value={formData.taxRate} onChange={e => setFormData(p => ({ ...p, taxRate: parseFloat(e.target.value) || 0 }))}
+                          className="w-14 px-2 py-1 bg-gray-800 border border-white/10 rounded-lg text-sm text-white text-right outline-none focus:border-[#1C6AE4]" />
+                        <span className="text-gray-500 text-sm">%</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 transition cursor-pointer" onClick={() => setFormData(p => ({ ...p, variableTva: true, enableTva: false }))}>
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition ${formData.variableTva ? 'border-[#1C6AE4] bg-[#1C6AE4]' : 'border-gray-500'}`}>
+                      {formData.variableTva && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                    </div>
+                    <span className="text-sm text-gray-300 flex-1">TVA par ligne</span>
+                  </div>
+                  {formData.variableTva && (
+                    <div className="ml-4 px-3 py-2 space-y-1.5">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-wide">Taux par article</p>
+                      {formData.items.map((item, idx) => (
+                        <div key={item.id} className="flex items-center gap-2">
+                          <span className="text-[11px] text-gray-400 flex-1 truncate">{item.description || `Article ${idx + 1}`}</span>
+                          <input type="number" value={typeof item.vatRate === 'number' ? item.vatRate : 19}
+                            onChange={e => updateItem(idx, 'vatRate', parseFloat(e.target.value) || 0)}
+                            className="w-14 px-2 py-1 bg-gray-800 border border-white/10 rounded-lg text-xs text-white text-right outline-none focus:border-[#1C6AE4]" />
+                          <span className="text-gray-500 text-xs">%</span>
+                        </div>
+                      ))}
+                      {formData.items.length === 0 && <p className="text-[11px] text-gray-600">Ajoutez des articles d'abord</p>}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between px-3 py-2 rounded-xl hover:bg-white/5 transition">
+                    <span className="text-sm text-gray-300">Timbre fiscal</span>
+                    <Sw on={formData.enableTimbre} onToggle={() => setFormData(p => ({ ...p, enableTimbre: !p.enableTimbre }))} />
+                  </div>
+                  {formData.enableTimbre && (
+                    <div className="flex items-center justify-between px-3 py-1.5 ml-4">
+                      <span className="text-sm text-gray-400">Valeur</span>
+                      <div className="flex items-center gap-1">
+                        <input type="number" value={formData.timbreValue} onChange={e => setFormData(p => ({ ...p, timbreValue: parseFloat(e.target.value) || 0 }))}
+                          className="w-20 px-2 py-1 bg-gray-800 border border-white/10 rounded-lg text-sm text-white text-right outline-none focus:border-[#1C6AE4]" />
+                        <span className="text-gray-500 text-sm">{sym}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Taxes custom */}
+                  {formData.extraTaxes.map((tax, idx) => (
+                    <div key={tax.id} className="px-3 py-2 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <input value={tax.label} onChange={e => {
+                          const t = [...formData.extraTaxes]; t[idx] = { ...t[idx], label: e.target.value };
+                          setFormData(p => ({ ...p, extraTaxes: t }));
+                        }} placeholder="Titre taxe" className="flex-1 px-2 py-1 bg-gray-800 border border-white/10 rounded-lg text-xs text-white outline-none focus:border-[#1C6AE4]" />
+                        <button onClick={() => setFormData(p => ({ ...p, extraTaxes: p.extraTaxes.filter((_, i) => i !== idx) }))}
+                          className="w-5 h-5 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center text-red-400 transition">
+                          <Minus size={10} />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1 ml-1">
+                        <input type="number" value={tax.rate} onChange={e => {
+                          const t = [...formData.extraTaxes]; t[idx] = { ...t[idx], rate: parseFloat(e.target.value) || 0 };
+                          setFormData(p => ({ ...p, extraTaxes: t }));
+                        }} className="w-20 px-2 py-1 bg-gray-800 border border-white/10 rounded-lg text-xs text-white text-right outline-none focus:border-[#1C6AE4]" />
+                        <span className="text-gray-500 text-xs">%</span>
+                      </div>
                     </div>
                   ))}
-                  {formData.items.length === 0 && <p className="text-center text-gray-400 text-sm">Aucun article</p>}
+                  <button onClick={() => setFormData(p => ({ ...p, extraTaxes: [...p.extraTaxes, { id: Date.now().toString(), label: '', rate: 0 }] }))}
+                    className="flex items-center gap-1.5 px-3 py-2 w-full text-[11px] text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition">
+                    <div className="w-4 h-4 rounded-full border border-gray-600 flex items-center justify-center"><Plus size={8} /></div>
+                    Ajouter une taxe
+                  </button>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2"><Calculator className="w-4 h-4" /> Moteur fiscal</h3>
-                <div className="flex gap-2">
-                  <button onClick={() => setFiscalMode('manuel')} className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition ${fiscalMode === 'manuel' ? 'bg-accent text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}><RefreshCw className="w-4 h-4" /> Manuel</button>
-                  <button onClick={() => setFiscalMode('auto')} className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-sm font-medium transition ${fiscalMode === 'auto' ? 'bg-accent text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}><Sparkles className="w-4 h-4" /> Automatique (IA)</button>
+              )}
+
+              {/* Résultat Auto IA */}
+              {fiscalMode === 'auto' && fiscalLoading && <p className="text-xs text-[#1C6AE4] animate-pulse mt-1 px-1">Analyse en cours...</p>}
+              {fiscalMode === 'auto' && fiscalAnalysis && (
+                <div className="mt-2 bg-[#1C6AE4]/10 border border-[#1C6AE4]/30 rounded-xl p-3 space-y-1">
+                  <div className="flex justify-between text-xs"><span className="text-gray-400">Pays</span><span className="text-white">{fiscalAnalysis.detectedCountry}</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-gray-400">TVA</span><span className="text-white">{fiscalAnalysis.tvaRate}%</span></div>
+                  <div className="flex justify-between text-xs pt-1 border-t border-[#1C6AE4]/30 font-bold"><span className="text-[#93b8f5]">Total TTC</span><span className="text-[#93b8f5]">{fiscalAnalysis.total?.toFixed(3)} {fiscalAnalysis.detectedCurrency}</span></div>
                 </div>
-                {fiscalMode === 'auto' && (
-                  <div className="mt-2 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">Mode automatique : l’IA analysera la facture (composant à implémenter)</div>
-                )}
-                {fiscalMode === 'manuel' && <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">💡 Mode manuel : vous gérez vous-même les taux de TVA, timbre, etc.</div>}
-              </div>
-              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2"><Settings className="w-4 h-4" /> Réglages fiscaux</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex items-center justify-between"><span className="text-sm">Activer la TVA</span><div className="flex gap-1"><button onClick={() => setFormData(prev => ({ ...prev, enableTva: false }))} disabled={fiscalMode === 'auto'} className={`px-2 py-0.5 rounded text-xs ${!formData.enableTva ? 'bg-accent text-white' : 'bg-white border'} ${fiscalMode === 'auto' ? 'opacity-50 cursor-not-allowed' : ''}`}>Non</button><button onClick={() => setFormData(prev => ({ ...prev, enableTva: true }))} disabled={fiscalMode === 'auto'} className={`px-2 py-0.5 rounded text-xs ${formData.enableTva ? 'bg-accent text-white' : 'bg-white border'} ${fiscalMode === 'auto' ? 'opacity-50 cursor-not-allowed' : ''}`}>Oui</button></div></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">Taux TVA (%)</span><input type="number" value={formData.taxRate} onChange={(e) => setFormData(prev => ({ ...prev, taxRate: parseFloat(e.target.value) || 0 }))} disabled={fiscalMode === 'auto'} className={`w-20 px-2 py-1 border rounded text-right text-sm ${fiscalMode === 'auto' ? 'bg-gray-100 text-gray-400' : ''}`} /></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">Taux TVA variable par ligne</span><div className="flex gap-1"><button onClick={() => setFormData(prev => ({ ...prev, variableTva: false }))} disabled={fiscalMode === 'auto'} className={`px-2 py-0.5 rounded text-xs ${!formData.variableTva ? 'bg-accent text-white' : 'bg-white border'} ${fiscalMode === 'auto' ? 'opacity-50 cursor-not-allowed' : ''}`}>Non</button><button onClick={() => setFormData(prev => ({ ...prev, variableTva: true }))} disabled={fiscalMode === 'auto'} className={`px-2 py-0.5 rounded text-xs ${formData.variableTva ? 'bg-accent text-white' : 'bg-white border'} ${fiscalMode === 'auto' ? 'opacity-50 cursor-not-allowed' : ''}`}>Oui</button></div></div>
-                  <div className="flex items-center justify-between"><span className="text-sm">Timbre fiscal</span><div className="flex gap-1"><button onClick={() => setFormData(prev => ({ ...prev, enableTimbre: false }))} disabled={fiscalMode === 'auto'} className={`px-2 py-0.5 rounded text-xs ${!formData.enableTimbre ? 'bg-accent text-white' : 'bg-white border'} ${fiscalMode === 'auto' ? 'opacity-50 cursor-not-allowed' : ''}`}>Non</button><button onClick={() => setFormData(prev => ({ ...prev, enableTimbre: true }))} disabled={fiscalMode === 'auto'} className={`px-2 py-0.5 rounded text-xs ${formData.enableTimbre ? 'bg-accent text-white' : 'bg-white border'} ${fiscalMode === 'auto' ? 'opacity-50 cursor-not-allowed' : ''}`}>Oui</button></div></div>
-                  <div className="flex items-center justify-between col-span-2"><span className="text-sm">Devise</span><select value={formData.currency} onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))} disabled={fiscalMode === 'auto'} className={`border rounded px-2 py-0.5 text-sm ${fiscalMode === 'auto' ? 'bg-gray-100 text-gray-400' : ''}`}>{currencies.map(c => <option key={c.code} value={c.code}>{c.country} {c.code}</option>)}</select></div>
-                </div>
-              </div>
-              <div><label className="block text-xs font-semibold text-gray-500 mb-1">Notes</label><textarea rows={2} value={formData.notes} onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))} className="w-full px-4 py-2 border rounded-lg text-sm" placeholder="Conditions de paiement..." /></div>
-              <div className="flex flex-wrap justify-end gap-3 pt-2">
-                <button onClick={handleDownloadPDF} className="flex items-center gap-1 px-4 py-1.5 border rounded-lg text-gray-700 hover:border-accent"><DownloadCloud className="w-4 h-4" /> PDF</button>
-                <button onClick={handleSave} className="flex items-center gap-1 px-5 py-1.5 bg-gradient-to-r from-accent to-purple-600 text-white rounded-lg font-semibold"><CheckCircle className="w-4 h-4" /> Générer</button>
+              )}
+            </div>
+
+            <div>
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Afficher dans le doc</p>
+              <div className="space-y-0.5">
+                {([['notes', 'Notes'], ['dueDate', "Échéance"]] as [keyof VisibilityState, string][]).map(([key, label]) => (
+                  <div key={key} className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-white/5 transition">
+                    <span className="text-sm text-gray-300">{label}</span>
+                    <Sw on={visibility[key]} onToggle={() => toggle(key)} />
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="lg:w-1/2 p-6 bg-gray-50 overflow-y-auto">
-              <InvoicePreview formData={formData} totals={totals} companyLogo={companyLogo || undefined} companyName={companyName} />
+
+          </div>
+          {/* bouton déplacé dans la barre du haut */}
+        </div>
+
+        {/* RIGHT PANEL — Document */}
+        <div className="flex-1 overflow-y-auto bg-gray-100 flex justify-center py-8 px-4">
+          <div className="w-full max-w-4xl bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden self-start">
+
+            {/* Header doc */}
+            <div className="p-8 pb-6">
+              <div className="flex items-start justify-between gap-6">
+                <div className="flex items-start gap-4 flex-1">
+                  <div onClick={() => logoInputRef.current?.click()}
+                    className="w-20 h-20 border-2 border-dashed border-gray-200 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-[#1C6AE4] transition flex-shrink-0 bg-gray-50">
+                    {companyLogo ? <img src={companyLogo} alt="logo" className="w-full h-full object-contain rounded-xl" /> : <><Upload className="w-6 h-6 text-gray-300 mb-1" /><span className="text-[9px] text-gray-400 text-center leading-tight px-1">Ajouter logo</span></>}
+                    <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                  </div>
+                  <div className="flex-1 space-y-1 min-w-0">
+                    <input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Nom de la société"
+                      className="text-base font-bold text-gray-700 w-full border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-0.5 transition" />
+                    {visibility.companyAddress && <input value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} placeholder="Adresse" className="text-xs text-gray-400 w-full border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-0.5 transition" />}
+                    <div className="flex flex-wrap gap-x-4">
+                      {visibility.companyPhone && <input value={companyPhone} onChange={e => setCompanyPhone(e.target.value)} placeholder="Téléphone" className="text-xs text-gray-400 border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-0.5 transition" />}
+                      {visibility.companyEmail && <input value={companyEmail} onChange={e => setCompanyEmail(e.target.value)} placeholder="Email" className="text-xs text-gray-400 border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-0.5 transition" />}
+                    </div>
+                    <div className="flex flex-wrap gap-x-4">
+                      {visibility.companyTaxId && <input value={companyTaxId} onChange={e => setCompanyTaxId(e.target.value)} placeholder="MF/Siret" className="text-xs text-gray-400 border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-0.5 transition" />}
+                      {visibility.companyRib && <input value={companyRib} onChange={e => setCompanyRib(e.target.value)} placeholder="RIB" className="text-xs text-gray-400 border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-0.5 transition" />}
+                      {visibility.companyIban && <input value={companyIban} onChange={e => setCompanyIban(e.target.value)} placeholder="IBAN" className="text-xs text-gray-400 border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-0.5 transition" />}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-2">
+                      {([['companyAddress','Adresse'],['companyPhone','Tél'],['companyEmail','Email'],['companyTaxId','MF'],['companyRib','RIB'],['companyIban','IBAN']] as [keyof VisibilityState, string][]).map(([k, l]) => (
+                        <button key={k} onClick={() => toggle(k)} className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium border transition ${visibility[k] ? 'bg-red-50 text-red-400 border-red-200' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-[#1C6AE4]'}`}>
+                          {visibility[k] ? <Minus size={8} /> : <Plus size={8} />}{l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right space-y-3 flex-shrink-0">
+                  <div>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">Facture N°</p>
+                    <input
+                      value={formData.invoiceNumber}
+                      onChange={e => setFormData(p => ({ ...p, invoiceNumber: e.target.value }))}
+                      className="text-sm font-bold text-gray-700 border-0 border-b border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent text-right w-36"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">Date</p>
+                    <input type="date" value={formData.date} onChange={e => setFormData(p => ({ ...p, date: e.target.value }))}
+                      className="text-sm text-gray-600 border-0 border-b border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent text-right" />
+                  </div>
+                  {visibility.dueDate && (
+                    <div>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wide">Échéance</p>
+                      <input type="date" value={formData.dueDate} onChange={e => setFormData(p => ({ ...p, dueDate: e.target.value }))}
+                        className="text-sm text-gray-600 border-0 border-b border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent text-right" />
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
+
+            <div className="h-px bg-gray-100 mx-8" />
+
+            {/* Client */}
+            <div className="px-8 py-6">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-3">Facturé à</p>
+              <input value={formData.clientName} onChange={e => setFormData(p => ({ ...p, clientName: e.target.value }))} placeholder="Nom Client"
+                className="text-sm font-semibold text-gray-700 w-full border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-0.5 transition" />
+              {visibility.clientSiret && <input value={formData.clientTaxId} onChange={e => setFormData(p => ({ ...p, clientTaxId: e.target.value }))} placeholder="Siret/MF" className="text-xs text-gray-400 w-full border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-0.5 transition mt-1" />}
+              {visibility.clientAddress && <input value={formData.clientAddress} onChange={e => setFormData(p => ({ ...p, clientAddress: e.target.value }))} placeholder="Adresse" className="text-xs text-gray-400 w-full border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-0.5 transition mt-1" />}
+              <div className="flex gap-4 mt-1">
+                {visibility.clientEmail && <input type="email" value={formData.clientEmail} onChange={e => setFormData(p => ({ ...p, clientEmail: e.target.value }))} placeholder="Email" className="text-xs text-gray-400 border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-0.5 transition" />}
+                {visibility.clientPhone && <input type="tel" value={formData.clientPhone} onChange={e => setFormData(p => ({ ...p, clientPhone: e.target.value }))} placeholder="Téléphone" className="text-xs text-gray-400 border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-0.5 transition" />}
+              </div>
+              <div className="flex flex-wrap gap-1.5 pt-3">
+                {([['clientSiret','Siret/MF'],['clientAddress','Adresse'],['clientEmail','Email'],['clientPhone','Tél']] as [keyof VisibilityState, string][]).map(([k, l]) => (
+                  <button key={k} onClick={() => toggle(k)} className={`flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-medium border transition ${visibility[k] ? 'bg-red-50 text-red-400 border-red-200' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-[#1C6AE4]'}`}>
+                    {visibility[k] ? <Minus size={8} /> : <Plus size={8} />}{l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="h-px bg-gray-100 mx-8" />
+
+            {/* Articles */}
+            <div className="px-8 py-6">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b-2 border-gray-100">
+                    <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-wide pb-3">Description</th>
+                    <th className="text-center text-[10px] font-bold text-gray-400 uppercase tracking-wide pb-3 w-16">Qté</th>
+                    <th className="text-right text-[10px] font-bold text-gray-400 uppercase tracking-wide pb-3 w-28">P.U. HT</th>
+                    {formData.variableTva && <th className="text-right text-[10px] font-bold text-gray-400 uppercase tracking-wide pb-3 w-16">TVA%</th>}
+                    <th className="text-right text-[10px] font-bold text-gray-400 uppercase tracking-wide pb-3 w-28">Total HT</th>
+                    <th className="w-8 pb-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formData.items.map((item, idx) => {
+                    const lineVat = typeof item.vatRate === 'number' ? item.vatRate : 19;
+                    return (
+                      <tr key={item.id} className="border-b border-gray-50 group">
+                        <td className="py-2 pr-2"><input value={item.description} onChange={e => updateItem(idx, 'description', e.target.value)} placeholder="Description..." className="w-full text-sm text-gray-700 border-0 border-b border-transparent hover:border-gray-200 focus:border-[#1C6AE4] outline-none bg-transparent py-1 transition" /></td>
+                        <td className="py-2 px-1"><input type="number" value={item.quantity} onChange={e => updateItem(idx, 'quantity', parseFloat(e.target.value) || 0)} className="w-full text-sm text-gray-700 text-center border border-gray-200 rounded-lg px-1 py-1 focus:border-[#1C6AE4] outline-none" /></td>
+                        <td className="py-2 px-1"><input type="number" value={item.unitPrice} onChange={e => updateItem(idx, 'unitPrice', parseFloat(e.target.value) || 0)} className="w-full text-sm text-gray-700 text-right border border-gray-200 rounded-lg px-2 py-1 focus:border-[#1C6AE4] outline-none" /></td>
+                        {formData.variableTva && (
+                          <td className="py-2 px-1">
+                            <div className="flex items-center gap-0.5">
+                              <input type="number" value={lineVat}
+                                onChange={e => updateItem(idx, 'vatRate', parseFloat(e.target.value) || 0)}
+                                className="w-full text-sm text-gray-700 text-right border border-gray-200 rounded-lg px-1 py-1 focus:border-[#1C6AE4] outline-none" />
+                              <span className="text-xs text-gray-400">%</span>
+                            </div>
+                          </td>
+                        )}
+                        <td className="py-2 pl-1 text-right text-sm font-mono text-gray-700">{fmt(item.lineTotal)} {sym}</td>
+                        <td className="py-2 pl-1"><button onClick={() => removeItem(idx)} className="w-5 h-5 rounded-full bg-red-400 hover:bg-red-500 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition"><Minus size={10} /></button></td>
+                      </tr>
+                    );
+                  })}
+                  {formData.items.length === 0 && <tr><td colSpan={formData.variableTva ? 6 : 5} className="py-10 text-center text-gray-300 text-sm">Aucun article — cliquez sur + pour ajouter</td></tr>}
+                </tbody>
+              </table>
+              <div className="flex justify-center mt-4">
+                <button onClick={addItem} className="w-7 h-7 rounded-full bg-[#1C6AE4] hover:bg-[#1C6AE4] flex items-center justify-center text-white transition shadow-sm"><Plus size={14} /></button>
+              </div>
+              <div className="flex justify-end mt-6">
+                <div className="w-60 border border-gray-100 rounded-xl overflow-hidden">
+                  <div className="flex justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100"><span className="text-xs text-gray-500">Total HT</span><span className="text-xs font-mono text-gray-700">{fmt(totals.ht)} {sym}</span></div>
+                  {(formData.enableTva || formData.variableTva) && <div className="flex justify-between px-4 py-2.5 border-b border-gray-100"><span className="text-xs text-gray-500">TVA {formData.variableTva ? '(par ligne)' : `(${formData.taxRate}%)`}</span><span className="text-xs font-mono text-gray-700">{fmt(totals.tvaAmount)} {sym}</span></div>}
+                  {formData.enableTimbre && <div className="flex justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100"><span className="text-xs text-gray-500">Timbre Fiscal</span><span className="text-xs font-mono text-gray-700">{fmt(formData.timbreValue)} {sym}</span></div>}
+                  {formData.extraTaxes.map(t => t.rate !== 0 && (
+                    <div key={t.id} className="flex justify-between px-4 py-2.5 border-b border-gray-100">
+                      <span className="text-xs text-gray-500">{t.label || 'Taxe'} ({t.rate}%)</span>
+                      <span className="text-xs font-mono text-gray-700">{fmt(totals.ht * t.rate / 100)} {sym}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between px-4 py-3 bg-gray-50"><span className="text-sm font-bold text-gray-700">Total TTC</span><span className="text-sm font-bold font-mono text-[#1C6AE4]">{fmt(totals.ttc)} {sym}</span></div>
+                </div>
+              </div>
+            </div>
+
+            {visibility.notes && (
+              <>
+                <div className="h-px bg-gray-100 mx-8" />
+                <div className="px-8 py-6">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Notes & Conditions</p>
+                  <textarea rows={3} value={formData.notes} onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))} placeholder="Conditions de paiement, remarques..." className="w-full text-sm text-gray-600 border border-gray-200 rounded-xl px-4 py-3 focus:border-[#1C6AE4] outline-none resize-none" />
+                </div>
+              </>
+            )}
+
+            <div className="px-8 py-4 bg-gray-50 border-t border-gray-100 text-center text-xs text-gray-400">
+              Merci de votre confiance — Paiement à réception sous 30 jours.
+            </div>
+
           </div>
         </div>
+
       </div>
     </div>
   );

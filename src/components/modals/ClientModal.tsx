@@ -132,7 +132,7 @@ export const ClientModal: React.FC<ClientModalProps> = ({ editData }) => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => dispatch(closeModal())} />
         <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto overflow-hidden">
           {/* En-tête */}
-          <div className="bg-gradient-to-r from-accent to-purple-600 px-6 py-4 flex justify-between items-center">
+          <div className="bg-[#1C6AE4] hover:bg-[#1555C8] px-6 py-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
                 <Building2 className="w-5 h-5 text-white" />

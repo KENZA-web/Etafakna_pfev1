@@ -1,9 +1,9 @@
 // src/pages/Factures.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../store';
-import { removeInvoice, updateInvoiceStatus } from '../store/slices/invoicesSlice';
-import { openModal, addToast } from '../store/slices/uiSlice';
+import { removeInvoice, updateInvoiceStatus, validateInvoice, payInvoice, cancelInvoice } from '../store/slices/invoicesSlice';
+import { openModal, addToast, setCurrentPage } from '../store/slices/uiSlice';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
@@ -14,9 +14,9 @@ import {
   Clock, AlertTriangle
 } from 'lucide-react';
 import type { Invoice } from '../types';
-import { Chatbot } from '../components/ai/Chatbot';
 import { sendInvoiceEmail } from '../services/emailService';
-import { downloadPDFFromElement } from '../services/pdfService';
+import api from '../services/api';
+import PDFViewerModal from '../components/modals/PDFViewerModal';
 
 // Liste complète des devises
 const CURRENCIES = {
@@ -46,6 +46,116 @@ const getCurrencySymbol = (code: string): string => {
   return (CURRENCIES as Record<string, { symbol: string }>)[code]?.symbol || code;
 };
 
+// ── Dropdown rendu en position fixed (hors tableau) ───────
+interface InvoiceActionDropdownProps {
+  inv: Invoice;
+  anchorRect: DOMRect;
+  onClose: () => void;
+  onPreview: () => void;
+  onDownload: () => void;
+  onEmail: () => void;
+  onPay: () => void;
+  onEmit: () => void;
+  onCancel: () => void;
+  onDelete: () => void;
+  onChat: () => void;
+}
+const InvoiceActionDropdown: React.FC<InvoiceActionDropdownProps> = ({
+  inv, anchorRect, onClose,
+  onPreview, onDownload, onEmail, onPay, onEmit, onCancel, onDelete, onChat,
+}) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  const dropdownHeight = 380;
+  const spaceBelow = window.innerHeight - anchorRect.bottom;
+  const openUpward = spaceBelow < dropdownHeight;
+
+  const posStyle: React.CSSProperties = openUpward
+    ? {
+        position: 'fixed',
+        bottom: window.innerHeight - anchorRect.top + 6,
+        right: window.innerWidth - anchorRect.right,
+        zIndex: 9999,
+      }
+    : {
+        position: 'fixed',
+        top: anchorRect.bottom + 6,
+        right: window.innerWidth - anchorRect.right,
+        zIndex: 9999,
+      };
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const t = setTimeout(() => document.addEventListener('mousedown', handler), 50);
+    return () => { clearTimeout(t); document.removeEventListener('mousedown', handler); };
+  }, [onClose]);
+
+  return (
+    <div ref={ref} style={posStyle}
+      className="bg-white rounded-2xl shadow-2xl border border-border w-64 overflow-hidden">
+      <div className="px-4 py-3 bg-gradient-to-r from-accent/5 to-purple-50 border-b border-border">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center">
+            <ChevronDown size={12} className="text-accent" />
+          </div>
+          <span className="text-[11px] font-bold text-accent uppercase tracking-wide">Actions disponibles</span>
+        </div>
+        <p className="text-[10px] text-ink-4 mt-1">Facture {inv.invoiceNumber || inv.id}</p>
+      </div>
+      <div className="py-1">
+        <button onClick={onPreview} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-indigo-50 transition-colors">
+          <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center"><Eye size={14} className="text-indigo-600" /></div>
+          <span className="flex-1 text-left font-medium">Aperçu PDF</span>
+        </button>
+        <button onClick={onDownload} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-blue-50 transition-colors">
+          <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center"><FileText size={14} className="text-blue-600" /></div>
+          <span className="flex-1 text-left font-medium">Télécharger PDF</span>
+        </button>
+        <button onClick={onEmail} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-emerald-50 transition-colors">
+          <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center"><Mail size={14} className="text-emerald-600" /></div>
+          <span className="flex-1 text-left font-medium">Envoyer par email</span>
+        </button>
+        <div className="h-px bg-border my-1" />
+        {inv.status !== 'PAID' && inv.status !== 'DRAFT' && (
+          <button onClick={onPay} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-green-700 hover:bg-green-50 transition-colors">
+            <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center"><CreditCard size={14} className="text-green-600" /></div>
+            <span className="flex-1 text-left font-medium">Marquer comme payée</span>
+          </button>
+        )}
+        {inv.status === 'DRAFT' && (
+          <button onClick={onEmit} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-amber-700 hover:bg-amber-50 transition-colors">
+            <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center"><Send size={14} className="text-amber-600" /></div>
+            <span className="flex-1 text-left font-medium">Émettre la facture</span>
+          </button>
+        )}
+        <div className="h-px bg-border my-1" />
+        <button onClick={onChat} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-purple-700 hover:bg-purple-50 transition-colors">
+          <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center"><Sparkles size={14} className="text-purple-600" /></div>
+          <span className="flex-1 text-left font-medium">Résumé IA</span>
+        </button>
+        <div className="h-px bg-border my-1" />
+        {inv.status !== 'PAID' && inv.status !== 'CANCELLED' && (
+          <button onClick={onCancel} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-orange-700 hover:bg-orange-50 transition-colors">
+            <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center"><X size={14} className="text-orange-600" /></div>
+            <span className="flex-1 text-left font-medium">Annuler la facture</span>
+          </button>
+        )}
+        {inv.status === 'DRAFT' && (
+          <button onClick={onDelete} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-red-700 hover:bg-red-50 transition-colors">
+            <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center"><Trash2 size={14} className="text-red-600" /></div>
+            <span className="flex-1 text-left font-medium">Supprimer</span>
+          </button>
+        )}
+      </div>
+      <div className="px-4 py-2 bg-surface-2 border-t border-border text-[10px] text-ink-4 flex items-center justify-between">
+        <span>Cliquez pour exécuter</span><span className="font-mono">esc pour fermer</span>
+      </div>
+    </div>
+  );
+};
+
 export const Factures: React.FC = () => {
   const dispatch = useDispatch();
   const invoices = useSelector((state: RootState) => state.invoices) as Invoice[];
@@ -54,9 +164,10 @@ export const Factures: React.FC = () => {
   const [periodFilter, setPeriodFilter] = useState<string>('all');
   const [currencyFilter, setCurrencyFilter] = useState<string>('all');
   const [openActionId, setOpenActionId] = useState<string | null>(null);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPageNum] = useState(1);
   const itemsPerPage = 10;
   const [paymentData, setPaymentData] = useState({
     date: new Date().toISOString().slice(0, 10),
@@ -64,8 +175,12 @@ export const Factures: React.FC = () => {
     reference: ''
   });
 
-  const [showChatbot, setShowChatbot] = useState(false);
-  const [selectedInvoiceForChat, setSelectedInvoiceForChat] = useState<Invoice | null>(null);
+  const [aiSummaryInvoice, setAiSummaryInvoice] = useState<Invoice | null>(null);
+  const [aiSummary, setAiSummary] = useState<string>('');
+  const [aiLoading, setAiLoading] = useState(false);
+
+  // PDF Viewer
+  const [pdfViewer, setPdfViewer] = useState<{ url: string; fileName: string; invoiceId: string } | null>(null);
 
   const isOverdue = (invoice: Invoice): boolean => {
     if (!invoice.dueDate) return false;
@@ -96,7 +211,7 @@ export const Factures: React.FC = () => {
   };
 
   const filteredInvoices: Invoice[] = invoices.filter((inv: Invoice) => {
-    const matchesSearch = !searchTerm || inv.client.toLowerCase().includes(searchTerm.toLowerCase()) || inv.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || inv.client.toLowerCase().includes(searchTerm.toLowerCase()) || (inv.invoiceNumber || inv.id).toLowerCase().includes(searchTerm.toLowerCase());
     let matchesStatus = true;
     if (statusFilter === 'overdue') matchesStatus = isOverdue(inv);
     else if (statusFilter) {
@@ -148,40 +263,165 @@ export const Factures: React.FC = () => {
     );
   };
 
-  const handleEmit = (id: string) => { dispatch(updateInvoiceStatus({ id, status: 'ISSUED', lc: 2 })); dispatch(addToast({ message: `✅ ${id} émise avec succès !`, type: 'success' })); setOpenActionId(null); };
-  const handleMarkPaid = (id: string) => {
-    if (!paymentData.amount) { dispatch(addToast({ message: `⚠️ Veuillez saisir le montant reçu`, type: 'error' })); return; }
-    dispatch(updateInvoiceStatus({ id, status: 'PAID', lc: 4 }));
-    const invoice = invoices.find(i => i.id === id);
-    const currency = invoice ? getInvoiceCurrency(invoice) : 'TND';
-    dispatch(addToast({ message: `💰 ${id} marquée comme payée ! Montant: ${formatAmountWithCurrency(parseFloat(paymentData.amount), currency)} - Ref: ${paymentData.reference || 'N/A'}`, type: 'success' }));
-    setShowPaymentModal(null); setPaymentData({ date: new Date().toISOString().slice(0, 10), amount: '', reference: '' }); setOpenActionId(null);
+  const handleEmit = async (id: string) => {
+    try {
+      await (dispatch as any)(validateInvoice(id)).unwrap();
+      dispatch(addToast({ message: `✅ Facture ${id} émise avec succès !`, type: 'success' }));
+    } catch (err: any) {
+      dispatch(addToast({ message: `❌ ${err || 'Erreur lors de la validation'}`, type: 'error' }));
+    }
+    setOpenActionId(null);
   };
-  const handlePreview = (invoiceId: string) => { dispatch(addToast({ message: `👁️ Aperçu PDF de ${invoiceId}`, type: 'info' })); setOpenActionId(null); };
-  const handleDownload = async (invoice: Invoice) => { try { await downloadPDFFromElement(`invoice-row-${invoice.id}`, `facture_${invoice.id}.pdf`); dispatch(addToast({ message: `📥 PDF téléchargé pour ${invoice.id}`, type: 'success' })); } catch (error) { dispatch(addToast({ message: `❌ Erreur PDF pour ${invoice.id}`, type: 'error' })); } setOpenActionId(null); };
+
+  const handleMarkPaid = async (id: string) => {
+    if (!paymentData.amount) {
+      dispatch(addToast({ message: `⚠️ Veuillez saisir le montant reçu`, type: 'error' }));
+      return;
+    }
+    try {
+      await (dispatch as any)(payInvoice({
+        id,
+        paidDate: paymentData.date,
+        notes: paymentData.reference ? `Réf: ${paymentData.reference}` : undefined,
+      })).unwrap();
+      const invoice = invoices.find(i => i.id === id);
+      const currency = invoice ? getInvoiceCurrency(invoice) : 'TND';
+      dispatch(addToast({ message: `💰 Facture ${id} marquée payée ! Montant: ${formatAmountWithCurrency(parseFloat(paymentData.amount), currency)}${paymentData.reference ? ` - Réf: ${paymentData.reference}` : ''}`, type: 'success' }));
+    } catch (err: any) {
+      dispatch(addToast({ message: `❌ ${err || 'Erreur lors du paiement'}`, type: 'error' }));
+    }
+    setShowPaymentModal(null);
+    setPaymentData({ date: new Date().toISOString().slice(0, 10), amount: '', reference: '' });
+    setOpenActionId(null);
+  };
+
+  const handleCancel = async (id: string) => {
+    if (!window.confirm(`Annuler la facture ${id} ?`)) return;
+    try {
+      await (dispatch as any)(cancelInvoice(id)).unwrap();
+      dispatch(addToast({ message: `🚫 Facture ${id} annulée`, type: 'info' }));
+    } catch (err: any) {
+      dispatch(addToast({ message: `❌ ${err || "Erreur lors de l'annulation"}`, type: 'error' }));
+    }
+    setOpenActionId(null);
+  };
+  const handlePreview = async (invoiceId: string) => {
+    dispatch(addToast({ message: `📄 Chargement de l'aperçu...`, type: 'info' }));
+    try {
+      const response = await (await import('../services/api')).default.get(
+        `/invoices/${invoiceId}/pdf`,
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const invoice = invoices.find(i => i.id === invoiceId);
+      const fileName = `facture-${invoice?.invoiceNumber || invoiceId}.pdf`;
+      setPdfViewer({ url, fileName, invoiceId });
+    } catch {
+      dispatch(addToast({ message: `❌ Erreur lors de la génération du PDF`, type: 'error' }));
+    }
+  };
+  const handleDownload = async (invoice: Invoice) => {
+    dispatch(addToast({ message: `📄 Génération du PDF...`, type: 'info' }));
+    try {
+      const response = await (await import('../services/api')).default.get(
+        `/invoices/${invoice.id}/pdf`,
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `facture-${invoice.invoiceNumber || invoice.id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      dispatch(addToast({ message: `✅ PDF téléchargé !`, type: 'success' }));
+    } catch {
+      dispatch(addToast({ message: `❌ Erreur PDF pour ${invoice.id}`, type: 'error' }));
+    }
+  };
   const handleEmail = async (invoice: Invoice) => { try { await sendInvoiceEmail(invoice.id); dispatch(addToast({ message: `📧 Email envoyé à ${invoice.client}`, type: 'success' })); } catch (error) { dispatch(addToast({ message: `❌ Échec de l'envoi à ${invoice.client}`, type: 'error' })); } setOpenActionId(null); };
   const handleDelete = (invoiceId: string, clientName: string) => { if (window.confirm(`Supprimer la facture ${invoiceId} de ${clientName} ?`)) { dispatch(removeInvoice(invoiceId) as any); dispatch(addToast({ message: `🗑️ Facture ${invoiceId} supprimée`, type: 'info' })); setOpenActionId(null); } };
   const openPaymentModal = (invoiceId: string, amount: number) => { setPaymentData({ ...paymentData, amount: amount.toString() }); setShowPaymentModal(invoiceId); setOpenActionId(null); };
+  const closeDropdown = () => { setOpenActionId(null); setAnchorRect(null); };
+  const toggleDropdown = (e: React.MouseEvent<HTMLButtonElement>, id: string) => {
+    e.stopPropagation();
+    if (openActionId === id) { closeDropdown(); return; }
+    setAnchorRect(e.currentTarget.getBoundingClientRect());
+    setOpenActionId(id);
+  };
+
   const handleRefresh = () => { setIsRefreshing(true); setTimeout(() => { setIsRefreshing(false); dispatch(addToast({ message: `🔄 Données actualisées`, type: 'success' })); }, 1000); };
   const handleExport = () => { dispatch(addToast({ message: `📄 Export PDF en cours...`, type: 'info' })); };
-  const resetFilters = () => { setSearchTerm(''); setStatusFilter(''); setPeriodFilter('all'); setCurrencyFilter('all'); setCurrentPage(1); dispatch(addToast({ message: `🔍 Filtres réinitialisés`, type: 'info' })); };
+  const resetFilters = () => { setSearchTerm(''); setStatusFilter(''); setPeriodFilter('all'); setCurrencyFilter('all'); setCurrentPageNum(1); dispatch(addToast({ message: `🔍 Filtres réinitialisés`, type: 'info' })); };
   useEffect(() => { const handleClickOutside = () => setOpenActionId(null); document.addEventListener('click', handleClickOutside); return () => document.removeEventListener('click', handleClickOutside); }, []);
 
-  const totalAmount = filteredInvoices.reduce((sum, inv) => sum + inv.total, 0);
-  const paidAmount = filteredInvoices.filter(i => i.status === 'PAID').reduce((sum, inv) => sum + inv.total, 0);
-  const pendingAmount = filteredInvoices.filter(i => i.status === 'ISSUED').reduce((sum, inv) => sum + inv.total, 0);
-  const overdueCount = filteredInvoices.filter(i => isOverdue(i)).length;
-  const totalDisplay = totalAmount.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-  const paidDisplay = paidAmount.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
-  const pendingDisplay = pendingAmount.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  const activeInv = openActionId ? currentInvoices.find(i => i.id === openActionId) || invoices.find(i => i.id === openActionId) : null;
 
   return (
     <div>
+      {/* PDF Viewer Modal */}
+      {pdfViewer && (
+        <PDFViewerModal
+          url={pdfViewer.url}
+          fileName={pdfViewer.fileName}
+          onClose={() => {
+            window.URL.revokeObjectURL(pdfViewer.url);
+            setPdfViewer(null);
+          }}
+          onDownload={() => {
+            const link = document.createElement('a');
+            link.href = pdfViewer.url;
+            link.setAttribute('download', pdfViewer.fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            dispatch(addToast({ message: `✅ PDF téléchargé !`, type: 'success' }));
+          }}
+        />
+      )}
+      {/* Dropdown rendu hors tableau (position fixed) */}
+      {openActionId && activeInv && anchorRect && (
+        <InvoiceActionDropdown
+          inv={activeInv}
+          anchorRect={anchorRect}
+          onClose={closeDropdown}
+          onPreview={() => { handlePreview(activeInv.id); closeDropdown(); }}
+          onDownload={() => { handleDownload(activeInv); closeDropdown(); }}
+          onEmail={() => { handleEmail(activeInv); closeDropdown(); }}
+          onPay={() => { openPaymentModal(activeInv.id, activeInv.total); }}
+          onEmit={() => { handleEmit(activeInv.id); }}
+          onCancel={() => { handleCancel(activeInv.id); }}
+          onDelete={() => { handleDelete(activeInv.id, activeInv.client); }}
+          onChat={() => {
+            setAiSummaryInvoice(activeInv);
+            setAiSummary('');
+            setAiLoading(true);
+            closeDropdown();
+            // Générer le résumé
+            const inv = activeInv;
+            const sym = (inv as any).currency || 'TND';
+            const statusLabel: Record<string, string> = { DRAFT: 'Brouillon', ISSUED: 'Émise', PAID: 'Payée', CANCELLED: 'Annulée' };
+            const lines = (inv.lines || []).map((l: any, i: number) => `${i+1}. ${l.description} — Qté: ${l.quantity} × ${Number(l.unitPrice).toFixed(3)} = ${Number(l.lineTotal).toFixed(3)} ${sym}`).join('\n');
+            const overdue = inv.dueDate && new Date(inv.dueDate) < new Date() && inv.status !== 'PAID';
+            const summary = [
+              `📄 **${inv.invoiceNumber || inv.id}**`,
+              `👤 Client : ${inv.client}${inv.co ? ` (${inv.co})` : ''}`,
+              `📅 Émise le : ${inv.issueDate} | Échéance : ${inv.dueDate || '—'}${overdue ? ' ⚠️ EN RETARD' : ''}`,
+              `💰 Total TTC : ${Number(inv.total).toFixed(3)} ${sym}`,
+              `📊 Statut : ${statusLabel[inv.status] || inv.status}`,
+              lines ? `\n🧾 Articles :\n${lines}` : '',
+              inv.notes ? `\n📝 Notes : ${inv.notes}` : '',
+            ].filter(Boolean).join('\n');
+            setTimeout(() => { setAiSummary(summary); setAiLoading(false); }, 600);
+          }}
+        />
+      )}
       {/* Modal de paiement */}
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={() => setShowPaymentModal(null)}>
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="relative bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-5">
+            <div className="relative bg-gradient-to-r bg-[#1C6AE4] px-6 py-5">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16"></div>
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full -ml-12 -mb-12"></div>
               <div className="flex items-center gap-3 relative z-10">
@@ -210,7 +450,7 @@ export const Factures: React.FC = () => {
             </div>
             <div className="flex gap-3 p-6 pt-0">
               <Button variant="secondary" onClick={() => setShowPaymentModal(null)} className="flex-1">Annuler</Button>
-              <Button variant="primary" onClick={() => handleMarkPaid(showPaymentModal)} className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"><CheckCircle size={14} className="mr-2" /> Confirmer le paiement</Button>
+              <Button variant="primary" onClick={() => handleMarkPaid(showPaymentModal)} className="flex-1 bg-gradient-to-r bg-[#1C6AE4] "><CheckCircle size={14} className="mr-2" /> Confirmer le paiement</Button>
             </div>
           </div>
         </div>
@@ -221,21 +461,15 @@ export const Factures: React.FC = () => {
         <div><h1 className="text-xl font-black text-ink">Factures</h1><p className="text-[12px] text-ink-4 mt-0.5">Gérez vos factures et suivez les paiements</p></div>
         <div className="flex items-center gap-2">
           <button onClick={handleRefresh} className={`p-2 rounded-lg bg-surface-2 border border-border hover:bg-surface transition-all ${isRefreshing ? 'animate-spin' : ''}`}><RefreshCw size={14} className="text-ink-4" /></button>
-          <button onClick={() => dispatch(openModal({ type: 'invoice', data: null }))} className="group relative flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-accent via-accent to-purple-600 text-white text-[13px] font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 overflow-hidden">
+          <button onClick={() => dispatch(setCurrentPage('nouvelle-facture'))} className="group relative flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1C6AE4] hover:bg-[#1555C8] text-white text-[13px] font-bold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
             <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-[0_0_20px_rgba(79,70,229,0.5)]" />
-            <div className="relative flex items-center gap-2"><div className="p-0.5 rounded-full bg-white/20 group-hover:bg-white/30 transition-all"><Plus size={15} className="group-hover:rotate-90 transition-transform duration-300" /></div><span className="font-bold">Nouvelle facture</span><span className="px-1.5 py-0.5 bg-yellow-400 text-purple-900 text-[9px] font-black rounded-full animate-pulse">+</span></div>
+            <div className="relative flex items-center gap-2"><div className="p-0.5 rounded-full bg-white/20 group-hover:bg-white/30 transition-all"><Plus size={15} className="group-hover:rotate-90 transition-transform duration-300" /></div><span className="font-bold">Nouvelle facture</span></div>
           </button>
         </div>
       </div>
 
-      {/* Cartes stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
-        <div className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 rounded-xl p-3 border border-indigo-100"><div className="flex items-center justify-between"><div><div className="text-[10px] text-indigo-600 font-bold uppercase tracking-wide">Total filtré</div><div className="text-lg font-black text-indigo-700">{totalDisplay} (multi-devises)</div></div><div className="w-8 h-8 rounded-lg bg-indigo-200 flex items-center justify-center"><DollarSign size={16} className="text-indigo-600" /></div></div></div>
-        <div className="bg-gradient-to-r from-green-50 to-green-100/50 rounded-xl p-3 border border-green-100"><div className="flex items-center justify-between"><div><div className="text-[10px] text-green-600 font-bold uppercase tracking-wide">Payé</div><div className="text-lg font-black text-green-700">{paidDisplay} (multi-devises)</div></div><div className="w-8 h-8 rounded-lg bg-green-200 flex items-center justify-center"><CheckCircle size={16} className="text-green-600" /></div></div></div>
-        <div className="bg-gradient-to-r from-amber-50 to-amber-100/50 rounded-xl p-3 border border-amber-100"><div className="flex items-center justify-between"><div><div className="text-[10px] text-amber-600 font-bold uppercase tracking-wide">En attente</div><div className="text-lg font-black text-amber-700">{pendingDisplay} (multi-devises)</div></div><div className="w-8 h-8 rounded-lg bg-amber-200 flex items-center justify-center"><Clock size={16} className="text-amber-600" /></div></div></div>
-        <div className="bg-gradient-to-r from-red-50 to-red-100/50 rounded-xl p-3 border border-red-100"><div className="flex items-center justify-between"><div><div className="text-[10px] text-red-600 font-bold uppercase tracking-wide">En retard</div><div className="text-lg font-black text-red-700">{overdueCount}</div></div><div className="w-8 h-8 rounded-lg bg-red-200 flex items-center justify-center"><AlertTriangle size={16} className="text-red-600" /></div></div></div>
-      </div>
+
 
       {/* Filtres */}
       <div className="bg-white rounded-xl border border-border p-4 mb-4 shadow-sm">
@@ -274,34 +508,19 @@ export const Factures: React.FC = () => {
                 const currency = getInvoiceCurrency(inv);
                 return (
                   <tr key={inv.id} id={`invoice-row-${inv.id}`} className="border-b border-border/50 hover:bg-surface-2 transition-colors group">
-                    <td className="p-2.5 px-3.5 font-mono text-[11.5px] font-semibold text-accent">{inv.id}</td>
+                    <td className="p-2.5 px-3.5 font-mono text-[11.5px] font-semibold text-accent">{inv.invoiceNumber || inv.id}</td>
                     <td className="p-2.5 px-3.5"><div className="font-semibold text-ink">{inv.client}</div><div className="text-[10px] text-ink-4">{inv.co}</div></td>
                     <td className="p-2.5 px-3.5 font-mono font-bold text-ink">{formatAmountWithCurrency(inv.total, currency)}</td>
                     <td className="p-2.5 px-3.5 text-[11.5px] text-ink-4">{formatDate(inv.issueDate)}</td>
                     <td className="p-2.5 px-3.5 text-[11.5px] text-ink-4">{formatDate(inv.dueDate)}</td>
                     <td className="p-2.5 px-3.5">{isInvoiceOverdue ? <span className="badge badge-overdue bg-red-100 text-red-700 border-red-200">En retard</span> : <Badge status={inv.status === 'PAID' ? 'paid' : inv.status === 'ISSUED' ? 'pending' : inv.status === 'DRAFT' ? 'draft' : inv.status === 'CANCELLED' ? 'refused' : 'signed'} />}</td>
                     <td className="p-2.5 px-3.5">{buildLifecycle(inv.lc)}</td>
-                    <td className="p-2.5 px-3.5 relative">
+                    <td className="p-2.5 px-3.5 text-right">
                       <div className="relative">
-                        <button onClick={(e) => { e.stopPropagation(); setOpenActionId(openActionId === inv.id ? null : inv.id); }} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all duration-200 ${openActionId === inv.id ? 'bg-accent text-white shadow-md' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}><span className="text-[11px] font-bold">Actions</span><ChevronDown size={12} className={openActionId === inv.id ? 'rotate-180' : ''} /></button>
-                        {openActionId === inv.id && (
-                          <div className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-2xl border border-border w-64 z-20 overflow-hidden origin-top-right">
-                            <div className="px-4 py-3 bg-gradient-to-r from-accent-pale to-violet-light border-b border-border"><div className="flex items-center gap-2"><div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center"><ChevronDown size={12} className="text-accent" /></div><span className="text-[11px] font-bold text-accent uppercase tracking-wide">Actions disponibles</span></div><p className="text-[10px] text-ink-4 mt-1">Facture {inv.id}</p></div>
-                            <div className="py-1">
-                              <button onClick={() => handlePreview(inv.id)} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-indigo-50 transition-all duration-150 group"><div className="w-7 h-7 rounded-lg bg-indigo-100 group-hover:bg-indigo-200 flex items-center justify-center"><Eye size={14} className="text-indigo-600" /></div><span className="flex-1 text-left font-medium">Aperçu PDF</span></button>
-                              <button onClick={() => handleDownload(inv)} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-blue-50 transition-all duration-150 group"><div className="w-7 h-7 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center"><FileText size={14} className="text-blue-600" /></div><span className="flex-1 text-left font-medium">Télécharger PDF</span></button>
-                              <button onClick={() => handleEmail(inv)} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-emerald-50 transition-all duration-150 group"><div className="w-7 h-7 rounded-lg bg-emerald-100 group-hover:bg-emerald-200 flex items-center justify-center"><Mail size={14} className="text-emerald-600" /></div><span className="flex-1 text-left font-medium">Envoyer par email</span></button>
-                              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent my-1"></div>
-                              {inv.status !== 'PAID' && inv.status !== 'DRAFT' && <button onClick={() => openPaymentModal(inv.id, inv.total)} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-green-700 hover:bg-green-50 transition-all duration-150 group"><div className="w-7 h-7 rounded-lg bg-green-100 group-hover:bg-green-200 flex items-center justify-center"><CreditCard size={14} className="text-green-600" /></div><span className="flex-1 text-left font-medium">Marquer comme payée</span></button>}
-                              {inv.status === 'DRAFT' && <button onClick={() => handleEmit(inv.id)} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-amber-700 hover:bg-amber-50 transition-all duration-150 group"><div className="w-7 h-7 rounded-lg bg-amber-100 group-hover:bg-amber-200 flex items-center justify-center"><Send size={14} className="text-amber-600" /></div><span className="flex-1 text-left font-medium">Émettre la facture</span></button>}
-                              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent my-1"></div>
-                              <button onClick={() => { setSelectedInvoiceForChat(inv); setShowChatbot(true); setOpenActionId(null); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-purple-700 hover:bg-purple-50 transition-all duration-150 group"><div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-100 to-purple-200 group-hover:from-purple-200 group-hover:to-purple-300 flex items-center justify-center"><Sparkles size={14} className="text-purple-600" /></div><span className="flex-1 text-left font-medium">Assistant IA</span></button>
-                              <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent my-1"></div>
-                              <button onClick={() => handleDelete(inv.id, inv.client)} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-red-700 hover:bg-red-50 transition-all duration-150 group"><div className="w-7 h-7 rounded-lg bg-red-100 group-hover:bg-red-200 flex items-center justify-center"><Trash2 size={14} className="text-red-600" /></div><span className="flex-1 text-left font-medium">Supprimer</span></button>
-                            </div>
-                            <div className="px-4 py-2 bg-surface-2 border-t border-border text-[10px] text-ink-4 flex items-center justify-between"><span>Cliquez pour exécuter</span><span className="font-mono">esc pour fermer</span></div>
-                          </div>
-                        )}
+                        <button onClick={(e) => toggleDropdown(e, inv.id)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all duration-200 ${openActionId === inv.id ? 'bg-accent text-white shadow-md' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}>
+                          <span className="text-[11px] font-bold">Actions</span>
+                          <ChevronDown size={12} className={`transition-transform ${openActionId === inv.id ? 'rotate-180' : ''}`} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -314,22 +533,71 @@ export const Factures: React.FC = () => {
           <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-surface-2">
             <div className="text-[10px] text-ink-4">Affichage {indexOfFirstItem + 1} à {Math.min(indexOfLastItem, filteredInvoices.length)} sur {filteredInvoices.length} factures</div>
             <div className="flex gap-1">
-              <button onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className={`p-1.5 rounded border border-border transition-all ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white'}`}><ChevronLeft size={14} className="text-ink-4" /></button>
+              <button onClick={() => setCurrentPageNum(prev => Math.max(prev - 1, 1))} disabled={currentPage === 1} className={`p-1.5 rounded border border-border transition-all ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white'}`}><ChevronLeft size={14} className="text-ink-4" /></button>
               {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
                 let pageNum = currentPage;
                 if (totalPages <= 5) pageNum = i + 1;
                 else if (currentPage <= 3) pageNum = i + 1;
                 else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
                 else pageNum = currentPage - 2 + i;
-                return <button key={pageNum} onClick={() => setCurrentPage(pageNum)} className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${currentPage === pageNum ? 'bg-accent text-white' : 'border border-border hover:bg-white'}`}>{pageNum}</button>;
+                return <button key={pageNum} onClick={() => setCurrentPageNum(pageNum)} className={`px-2.5 py-1 rounded text-[11px] font-bold transition-all ${currentPage === pageNum ? 'bg-accent text-white' : 'border border-border hover:bg-white'}`}>{pageNum}</button>;
               })}
-              <button onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className={`p-1.5 rounded border border-border transition-all ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white'}`}><ChevronRight size={14} className="text-ink-4" /></button>
+              <button onClick={() => setCurrentPageNum(prev => Math.min(prev + 1, totalPages))} disabled={currentPage === totalPages} className={`p-1.5 rounded border border-border transition-all ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white'}`}><ChevronRight size={14} className="text-ink-4" /></button>
             </div>
           </div>
         )}
       </Card>
 
-      {showChatbot && selectedInvoiceForChat && <Chatbot documentContext={selectedInvoiceForChat} onClose={() => setShowChatbot(false)} />}
+      {/* Modal résumé IA */}
+      {aiSummaryInvoice && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setAiSummaryInvoice(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-6 py-4 flex items-center justify-between border-b border-gray-100" style={{ background: 'linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[#1C6AE4]/10 flex items-center justify-center">
+                  <Sparkles size={18} className="text-[#1C6AE4]" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gray-800">Résumé IA</p>
+                  <p className="text-[11px] text-gray-400">{aiSummaryInvoice.invoiceNumber || aiSummaryInvoice.id}</p>
+                </div>
+              </div>
+              <button onClick={() => setAiSummaryInvoice(null)} className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition">
+                <X size={14} className="text-gray-500" />
+              </button>
+            </div>
+            {/* Contenu */}
+            <div className="px-6 py-5">
+              {aiLoading ? (
+                <div className="flex flex-col items-center gap-3 py-8">
+                  <div className="w-8 h-8 rounded-full border-2 border-[#1C6AE4] border-t-transparent animate-spin" />
+                  <p className="text-sm text-gray-400">Génération du résumé...</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {aiSummary.split('\n').filter(Boolean).map((line, i) => {
+                    const isTitle = line.startsWith('📄');
+                    const isSection = line.startsWith('🧾') || line.startsWith('📝');
+                    return (
+                      <div key={i} className={`text-sm ${isTitle ? 'font-bold text-gray-800 text-base' : isSection ? 'font-semibold text-gray-700 mt-2' : 'text-gray-600'}`}>
+                        {line.replace(/\*\*/g, '')}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex justify-end">
+              <button onClick={() => setAiSummaryInvoice(null)}
+                style={{ backgroundColor: '#1C6AE4' }}
+                className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition">
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

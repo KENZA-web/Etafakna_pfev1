@@ -7,7 +7,7 @@ interface Toast {
 }
 
 interface UiState {
-  currentPage: 'dashboard' | 'factures' | 'devis' | 'clients';
+  currentPage: 'dashboard' | 'factures' | 'devis' | 'clients' | 'nouvelle-facture' | 'modifier-facture' | 'nouveau-devis' | 'modifier-devis';
   isMenuOpen: boolean;
   isModalOpen: boolean;
   modalType: 'client' | 'invoice' | 'devis' | null;

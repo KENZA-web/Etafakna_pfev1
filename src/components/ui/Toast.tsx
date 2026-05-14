@@ -59,23 +59,4 @@ const Toast: React.FC = () => {
   );
 };
 
-// Add this to your index.css
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes slideIn {
-    from {
-      opacity: 0;
-      transform: translateX(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-  .toast-show {
-    animation: slideIn 0.22s ease forwards;
-  }
-`;
-document.head.appendChild(style);
-
 export default Toast;

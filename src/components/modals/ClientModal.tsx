@@ -39,11 +39,6 @@ const countries = [
   { code: 'CA', name: 'Canada' },
 ];
 
-// Couleurs prédéfinies (inchangé)
-const colorOptions = [
-  '#4f46e5', '#7c3aed', '#059669', '#d97706', '#dc2626', '#0891b2', '#be185d', '#ca8a04'
-];
-
 interface ClientModalProps {
   editData?: Client | null;
 }
@@ -65,6 +60,8 @@ export const ClientModal: React.FC<ClientModalProps> = ({ editData }) => {
     notes: '',
   });
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   // Pré-remplissage en cas d'édition
   useEffect(() => {
     if (editData) {
@@ -84,13 +81,19 @@ export const ClientModal: React.FC<ClientModalProps> = ({ editData }) => {
   }, [editData]);
 
   const handleSubmit = async () => {
-    // Validation
-    if (!formData.name.trim()) {
-      dispatch(addToast({ message: '⚠️ Le nom du client est obligatoire', type: 'error' }));
-      return;
-    }
-    if (!formData.taxId.trim()) {
-      dispatch(addToast({ message: '⚠️ Le matricule fiscal est obligatoire', type: 'error' }));
+    // Validation inline
+    const newErrors: Record<string, string> = {};
+    if (!formData.name.trim()) newErrors.name = 'Le nom du client est obligatoire';
+    if (!formData.taxId.trim()) newErrors.taxId = 'Le matricule fiscal est obligatoire';
+    if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = 'Adresse email invalide';
+    if (formData.phone && !/^[\d\s+()-]{6,}$/.test(formData.phone)) newErrors.phone = 'Numéro de téléphone invalide';
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      setTimeout(() => {
+        const el = document.querySelector('[data-error="true"]');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 50);
       return;
     }
 
@@ -147,14 +150,16 @@ export const ClientModal: React.FC<ClientModalProps> = ({ editData }) => {
           {/* Corps du formulaire */}
           <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div data-error={!!errors.name || undefined}>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Nom / Raison sociale *</label>
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:border-accent focus:ring-1 focus:ring-accent"
+                  onChange={(e) => { setFormData({ ...formData, name: e.target.value }); setErrors(prev => ({ ...prev, name: '' })); }}
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:ring-1 ${errors.name ? 'border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-200' : 'focus:border-accent focus:ring-accent'}`}
+                  placeholder="Ex: Société ABC"
                 />
+                {errors.name && <p className="text-xs text-red-600 mt-1 font-medium flex items-center gap-1">⚠️ {errors.name}</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Activité</label>
@@ -168,43 +173,46 @@ export const ClientModal: React.FC<ClientModalProps> = ({ editData }) => {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div data-error={!!errors.email || undefined}>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Email</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm"
+                    onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setErrors(prev => ({ ...prev, email: '' })); }}
+                    className={`w-full pl-9 pr-3 py-2 border rounded-lg text-sm ${errors.email ? 'border-red-500 bg-red-50' : ''}`}
                   />
                 </div>
+                {errors.email && <p className="text-xs text-red-600 mt-1 font-medium flex items-center gap-1">⚠️ {errors.email}</p>}
               </div>
-              <div>
+              <div data-error={!!errors.phone || undefined}>
                 <label className="block text-xs font-semibold text-gray-500 mb-1">Téléphone</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
                     type="tel"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm"
+                    onChange={(e) => { setFormData({ ...formData, phone: e.target.value }); setErrors(prev => ({ ...prev, phone: '' })); }}
+                    className={`w-full pl-9 pr-3 py-2 border rounded-lg text-sm ${errors.phone ? 'border-red-500 bg-red-50' : ''}`}
                   />
                 </div>
+                {errors.phone && <p className="text-xs text-red-600 mt-1 font-medium flex items-center gap-1">⚠️ {errors.phone}</p>}
               </div>
             </div>
 
-            <div>
+            <div data-error={!!errors.taxId || undefined}>
               <label className="block text-xs font-semibold text-gray-500 mb-1">Matricule fiscal *</label>
               <div className="relative">
                 <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   value={formData.taxId}
-                  onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm"
+                  onChange={(e) => { setFormData({ ...formData, taxId: e.target.value }); setErrors(prev => ({ ...prev, taxId: '' })); }}
+                  className={`w-full pl-9 pr-3 py-2 border rounded-lg text-sm ${errors.taxId ? 'border-red-500 bg-red-50' : ''}`}
                 />
               </div>
+              {errors.taxId && <p className="text-xs text-red-600 mt-1 font-medium flex items-center gap-1">⚠️ {errors.taxId}</p>}
             </div>
 
             <div>
@@ -245,21 +253,6 @@ export const ClientModal: React.FC<ClientModalProps> = ({ editData }) => {
                     ))}
                   </select>
                 </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 mb-1">Couleur d'identification</label>
-              <div className="flex gap-2 flex-wrap">
-                {colorOptions.map(color => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setFormData({ ...formData, color })}
-                    className={`w-8 h-8 rounded-full transition-all ${formData.color === color ? 'ring-2 ring-offset-2 ring-accent scale-110' : ''}`}
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
               </div>
             </div>
 

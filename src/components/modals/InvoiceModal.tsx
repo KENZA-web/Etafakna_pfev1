@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import { useAppDispatch, RootState } from '../../store';
 import { ArrowLeft, CheckCircle, Plus, Minus, Upload, Sparkles, RefreshCw } from 'lucide-react';
 import { createInvoice, editInvoice } from '../../store/slices/invoicesSlice';
-import { fetchClients } from '../../store/slices/clientsSlice';
+import { fetchClients, editClient } from '../../store/slices/clientsSlice';
 import { addToast, setCurrentPage } from '../../store/slices/uiSlice';
 import { Client, Invoice, LineItem } from '../../types';
 import api from '../../services/api';
@@ -59,6 +59,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ editData }) => {
   const [fiscalLoading, setFiscalLoading] = useState(false);
   const [loadingClients, setLoadingClients] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [visibility, setVisibility] = useState<VisibilityState>({
     companyAddress: true, companyPhone: true, companyEmail: true,
     companyTaxId: true, companyRib: false, companyIban: true,
@@ -139,14 +140,48 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ editData }) => {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { const r = new FileReader(); r.onloadend = () => setCompanyLogo(r.result as string); r.readAsDataURL(file); } };
 
   const handleSave = async () => {
-    if (!formData.clientId) { dispatch(addToast({ message: 'Veuillez sélectionner un client', type: 'error' })); return; }
-    if (formData.items.length === 0) { dispatch(addToast({ message: 'Ajoutez au moins un article', type: 'error' })); return; }
+    const newErrors: Record<string, string> = {};
+    if (!formData.clientId) newErrors.clientId = 'Veuillez sélectionner un client';
+    if (formData.items.length === 0) newErrors.items = 'Ajoutez au moins un article';
+    formData.items.forEach((item, idx) => {
+      if (!item.description.trim()) newErrors[`item_desc_${idx}`] = 'Description requise';
+      if (item.unitPrice <= 0) newErrors[`item_price_${idx}`] = 'Prix invalide';
+      if (item.quantity <= 0) newErrors[`item_qty_${idx}`] = 'Quantité invalide';
+    });
+    setFormErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
     setSaving(true);
+    // Mettre à jour le client en base si les infos ont changé
+    if (formData.clientId) {
+      const currentClient = clients.find(c => c.id === formData.clientId);
+      if (currentClient) {
+        const clientUpdates: Record<string, any> = {};
+        if (formData.clientName && formData.clientName !== currentClient.name) clientUpdates.name = formData.clientName;
+        if (formData.clientEmail !== (currentClient.email || '')) clientUpdates.email = formData.clientEmail || null;
+        if (formData.clientPhone !== (currentClient.phone || '')) clientUpdates.phone = formData.clientPhone || null;
+        if (formData.clientAddress !== (currentClient.address || '')) clientUpdates.address = formData.clientAddress || null;
+        if (formData.clientTaxId !== (currentClient.taxId || '')) clientUpdates.taxId = formData.clientTaxId || null;
+        if (Object.keys(clientUpdates).length > 0) {
+          try {
+            await dispatch(editClient({ id: formData.clientId, ...clientUpdates } as any)).unwrap();
+          } catch { /* silently continue — invoice creation is more important */ }
+        }
+      }
+    }
     const payload = { clientId: formData.clientId, invoiceNumber: formData.invoiceNumber || undefined, issueDate: formData.date, dueDate: formData.dueDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0], currency: formData.currency || 'TND', notes: formData.notes || null, lines: formData.items.map(item => ({ description: item.description, quantity: item.quantity, unitPrice: item.unitPrice, vatRate: item.vatRate })) };
     try {
-      if (isRealInvoiceEdit) { await dispatch(editInvoice({ id: formData.id, ...payload } as any)).unwrap(); dispatch(addToast({ message: 'Facture modifiée', type: 'success' })); }
-      else { await dispatch(createInvoice(payload as any)).unwrap(); dispatch(addToast({ message: 'Facture créée', type: 'success' })); }
-      dispatch(setCurrentPage('factures'));
+      if (isRealInvoiceEdit) { await dispatch(editInvoice({ id: formData.id, ...payload } as any)).unwrap(); dispatch(addToast({ message: 'Facture modifiée', type: 'success' })); dispatch(setCurrentPage('factures')); }
+      else {
+        const created = await dispatch(createInvoice(payload as any)).unwrap();
+        dispatch(addToast({ message: 'Facture créée — aperçu PDF en cours...', type: 'success' }));
+        dispatch(setCurrentPage('factures'));
+        // Ouvrir l'aperçu PDF automatiquement après création
+        try {
+          const response = await api.get(`/invoices/${created.id}/pdf`, { responseType: 'blob' });
+          const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+          window.dispatchEvent(new CustomEvent('open-pdf-preview', { detail: { url, fileName: `facture-${created.invoiceNumber || created.id}.pdf` } }));
+        } catch { /* silently fail */ }
+      }
     } catch (error: any) {
       dispatch(addToast({ message: error?.response?.data?.error?.message || error?.message || 'Erreur inconnue', type: 'error' }));
     } finally { setSaving(false); }
@@ -198,6 +233,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ editData }) => {
                 <option value="">{loadingClients ? 'Chargement...' : 'Sélectionner...'}</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+              {formErrors.clientId && <p className="text-[11px] text-red-400 mt-1">{formErrors.clientId}</p>}
             </div>
 
             <div>
@@ -463,6 +499,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ editData }) => {
               <div className="flex justify-center mt-4">
                 <button onClick={addItem} className="w-7 h-7 rounded-full bg-[#1C6AE4] hover:bg-[#1C6AE4] flex items-center justify-center text-white transition shadow-sm"><Plus size={14} /></button>
               </div>
+              {formErrors.items && <p className="text-[11px] text-red-500 text-center mt-1">{formErrors.items}</p>}
               <div className="flex justify-end mt-6">
                 <div className="w-60 border border-gray-100 rounded-xl overflow-hidden">
                   <div className="flex justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100"><span className="text-xs text-gray-500">Total HT</span><span className="text-xs font-mono text-gray-700">{fmt(totals.ht)} {sym}</span></div>

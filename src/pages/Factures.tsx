@@ -66,20 +66,20 @@ const InvoiceActionDropdown: React.FC<InvoiceActionDropdownProps> = ({
 }) => {
   const ref = useRef<HTMLDivElement>(null);
 
-  const dropdownHeight = 380;
+  const dropdownHeight = 300;
   const spaceBelow = window.innerHeight - anchorRect.bottom;
   const openUpward = spaceBelow < dropdownHeight;
 
   const posStyle: React.CSSProperties = openUpward
     ? {
         position: 'fixed',
-        bottom: window.innerHeight - anchorRect.top + 6,
+        bottom: window.innerHeight - anchorRect.top + 4,
         right: window.innerWidth - anchorRect.right,
         zIndex: 9999,
       }
     : {
         position: 'fixed',
-        top: anchorRect.bottom + 6,
+        top: anchorRect.bottom + 4,
         right: window.innerWidth - anchorRect.right,
         zIndex: 9999,
       };
@@ -94,63 +94,53 @@ const InvoiceActionDropdown: React.FC<InvoiceActionDropdownProps> = ({
 
   return (
     <div ref={ref} style={posStyle}
-      className="bg-white rounded-2xl shadow-2xl border border-border w-64 overflow-hidden">
-      <div className="px-4 py-3 bg-gradient-to-r from-accent/5 to-purple-50 border-b border-border">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center">
-            <ChevronDown size={12} className="text-accent" />
-          </div>
-          <span className="text-[11px] font-bold text-accent uppercase tracking-wide">Actions disponibles</span>
-        </div>
-        <p className="text-[10px] text-ink-4 mt-1">Facture {inv.invoiceNumber || inv.id}</p>
-      </div>
+      className="bg-white rounded-xl shadow-xl border border-border w-52 overflow-hidden">
       <div className="py-1">
-        <button onClick={onPreview} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-indigo-50 transition-colors">
-          <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center"><Eye size={14} className="text-indigo-600" /></div>
-          <span className="flex-1 text-left font-medium">Aperçu PDF</span>
+        <button onClick={onPreview} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-ink-2 hover:bg-indigo-50 transition-colors">
+          <Eye size={13} className="text-indigo-500" />
+          <span className="font-medium">Aperçu PDF</span>
         </button>
-        <button onClick={onDownload} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-blue-50 transition-colors">
-          <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center"><FileText size={14} className="text-blue-600" /></div>
-          <span className="flex-1 text-left font-medium">Télécharger PDF</span>
+        <button onClick={onDownload} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-ink-2 hover:bg-blue-50 transition-colors">
+          <FileText size={13} className="text-blue-500" />
+          <span className="font-medium">Télécharger PDF</span>
         </button>
-        <button onClick={onEmail} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-emerald-50 transition-colors">
-          <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center"><Mail size={14} className="text-emerald-600" /></div>
-          <span className="flex-1 text-left font-medium">Envoyer par email</span>
+        <button onClick={onEmail} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-ink-2 hover:bg-emerald-50 transition-colors">
+          <Mail size={13} className="text-emerald-500" />
+          <span className="font-medium">Envoyer par email</span>
         </button>
-        <div className="h-px bg-border my-1" />
+        <div className="h-px bg-border my-0.5" />
         {inv.status !== 'PAID' && inv.status !== 'DRAFT' && (
-          <button onClick={onPay} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-green-700 hover:bg-green-50 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center"><CreditCard size={14} className="text-green-600" /></div>
-            <span className="flex-1 text-left font-medium">Marquer comme payée</span>
+          <button onClick={onPay} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-green-700 hover:bg-green-50 transition-colors">
+            <CreditCard size={13} className="text-green-500" />
+            <span className="font-medium">Marquer payée</span>
           </button>
         )}
         {inv.status === 'DRAFT' && (
-          <button onClick={onEmit} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-amber-700 hover:bg-amber-50 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center"><Send size={14} className="text-amber-600" /></div>
-            <span className="flex-1 text-left font-medium">Émettre la facture</span>
+          <button onClick={onEmit} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-amber-700 hover:bg-amber-50 transition-colors">
+            <Send size={13} className="text-amber-500" />
+            <span className="font-medium">Émettre</span>
           </button>
         )}
-        <div className="h-px bg-border my-1" />
-        <button onClick={onChat} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-purple-700 hover:bg-purple-50 transition-colors">
-          <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center"><Sparkles size={14} className="text-purple-600" /></div>
-          <span className="flex-1 text-left font-medium">Résumé IA</span>
+        <div className="h-px bg-border my-0.5" />
+        <button onClick={onChat} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-purple-700 hover:bg-purple-50 transition-colors">
+          <Sparkles size={13} className="text-purple-500" />
+          <span className="font-medium">Résumé IA</span>
         </button>
-        <div className="h-px bg-border my-1" />
         {inv.status !== 'PAID' && inv.status !== 'CANCELLED' && (
-          <button onClick={onCancel} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-orange-700 hover:bg-orange-50 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center"><X size={14} className="text-orange-600" /></div>
-            <span className="flex-1 text-left font-medium">Annuler la facture</span>
-          </button>
+          <>
+            <div className="h-px bg-border my-0.5" />
+            <button onClick={onCancel} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-orange-700 hover:bg-orange-50 transition-colors">
+              <X size={13} className="text-orange-500" />
+              <span className="font-medium">Annuler</span>
+            </button>
+          </>
         )}
         {inv.status === 'DRAFT' && (
-          <button onClick={onDelete} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-red-700 hover:bg-red-50 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center"><Trash2 size={14} className="text-red-600" /></div>
-            <span className="flex-1 text-left font-medium">Supprimer</span>
+          <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-red-700 hover:bg-red-50 transition-colors">
+            <Trash2 size={13} className="text-red-500" />
+            <span className="font-medium">Supprimer</span>
           </button>
         )}
-      </div>
-      <div className="px-4 py-2 bg-surface-2 border-t border-border text-[10px] text-ink-4 flex items-center justify-between">
-        <span>Cliquez pour exécuter</span><span className="font-mono">esc pour fermer</span>
       </div>
     </div>
   );
@@ -163,6 +153,8 @@ export const Factures: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [periodFilter, setPeriodFilter] = useState<string>('all');
   const [currencyFilter, setCurrencyFilter] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
   const [openActionId, setOpenActionId] = useState<string | null>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState<string | null>(null);
@@ -181,6 +173,8 @@ export const Factures: React.FC = () => {
 
   // PDF Viewer
   const [pdfViewer, setPdfViewer] = useState<{ url: string; fileName: string; invoiceId: string } | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteConfirmClient, setDeleteConfirmClient] = useState<string>('');
 
   const isOverdue = (invoice: Invoice): boolean => {
     if (!invoice.dueDate) return false;
@@ -222,7 +216,11 @@ export const Factures: React.FC = () => {
     const matchesPeriod = filterByPeriod(inv.issueDate);
     const invCurrency = getInvoiceCurrency(inv);
     const matchesCurrency = currencyFilter === 'all' || invCurrency === currencyFilter;
-    return matchesSearch && matchesStatus && matchesPeriod && matchesCurrency;
+    // Date range filter
+    let matchesDate = true;
+    if (dateFrom) matchesDate = matchesDate && inv.issueDate >= dateFrom;
+    if (dateTo) matchesDate = matchesDate && inv.issueDate <= dateTo;
+    return matchesSearch && matchesStatus && matchesPeriod && matchesCurrency && matchesDate;
   });
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -296,10 +294,9 @@ export const Factures: React.FC = () => {
   };
 
   const handleCancel = async (id: string) => {
-    if (!window.confirm(`Annuler la facture ${id} ?`)) return;
     try {
       await (dispatch as any)(cancelInvoice(id)).unwrap();
-      dispatch(addToast({ message: `🚫 Facture ${id} annulée`, type: 'info' }));
+      dispatch(addToast({ message: `🚫 Facture annulée`, type: 'info' }));
     } catch (err: any) {
       dispatch(addToast({ message: `❌ ${err || "Erreur lors de l'annulation"}`, type: 'error' }));
     }
@@ -341,7 +338,8 @@ export const Factures: React.FC = () => {
     }
   };
   const handleEmail = async (invoice: Invoice) => { try { await sendInvoiceEmail(invoice.id); dispatch(addToast({ message: `📧 Email envoyé à ${invoice.client}`, type: 'success' })); } catch (error) { dispatch(addToast({ message: `❌ Échec de l'envoi à ${invoice.client}`, type: 'error' })); } setOpenActionId(null); };
-  const handleDelete = (invoiceId: string, clientName: string) => { if (window.confirm(`Supprimer la facture ${invoiceId} de ${clientName} ?`)) { dispatch(removeInvoice(invoiceId) as any); dispatch(addToast({ message: `🗑️ Facture ${invoiceId} supprimée`, type: 'info' })); setOpenActionId(null); } };
+  const handleDelete = (invoiceId: string, clientName: string) => { setDeleteConfirmId(invoiceId); setDeleteConfirmClient(clientName); setOpenActionId(null); };
+  const confirmDelete = () => { if (deleteConfirmId) { dispatch(removeInvoice(deleteConfirmId) as any); dispatch(addToast({ message: `🗑️ Facture supprimée`, type: 'info' })); setDeleteConfirmId(null); } };
   const openPaymentModal = (invoiceId: string, amount: number) => { setPaymentData({ ...paymentData, amount: amount.toString() }); setShowPaymentModal(invoiceId); setOpenActionId(null); };
   const closeDropdown = () => { setOpenActionId(null); setAnchorRect(null); };
   const toggleDropdown = (e: React.MouseEvent<HTMLButtonElement>, id: string) => {
@@ -353,8 +351,20 @@ export const Factures: React.FC = () => {
 
   const handleRefresh = () => { setIsRefreshing(true); setTimeout(() => { setIsRefreshing(false); dispatch(addToast({ message: `🔄 Données actualisées`, type: 'success' })); }, 1000); };
   const handleExport = () => { dispatch(addToast({ message: `📄 Export PDF en cours...`, type: 'info' })); };
-  const resetFilters = () => { setSearchTerm(''); setStatusFilter(''); setPeriodFilter('all'); setCurrencyFilter('all'); setCurrentPageNum(1); dispatch(addToast({ message: `🔍 Filtres réinitialisés`, type: 'info' })); };
+  const resetFilters = () => { setSearchTerm(''); setStatusFilter(''); setPeriodFilter('all'); setCurrencyFilter('all'); setDateFrom(''); setDateTo(''); setCurrentPageNum(1); dispatch(addToast({ message: `🔍 Filtres réinitialisés`, type: 'info' })); };
   useEffect(() => { const handleClickOutside = () => setOpenActionId(null); document.addEventListener('click', handleClickOutside); return () => document.removeEventListener('click', handleClickOutside); }, []);
+
+  // Écouter l'event d'aperçu PDF après création
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.url && detail?.fileName) {
+        setPdfViewer({ url: detail.url, fileName: detail.fileName, invoiceId: '' });
+      }
+    };
+    window.addEventListener('open-pdf-preview', handler);
+    return () => window.removeEventListener('open-pdf-preview', handler);
+  }, []);
 
   const activeInv = openActionId ? currentInvoices.find(i => i.id === openActionId) || invoices.find(i => i.id === openActionId) : null;
 
@@ -480,6 +490,10 @@ export const Factures: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" /><input type="text" placeholder="Rechercher client ou n° facture..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-[12px] focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all bg-white" /></div>
           <div className="relative"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4"><span className="text-[11px]">📊</span></div><select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-[12px] focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all bg-white appearance-none cursor-pointer"><option value="">Tous les statuts</option><option value="paid">✅ Payée</option><option value="pending">⏳ En attente</option><option value="draft">📝 Brouillon</option><option value="refused">❌ Refusée</option><option value="signed">✍️ Signée</option><option value="overdue">⚠️ En retard</option></select><ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none" /></div>
+          <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-full px-3 py-2 border border-border rounded-lg text-[12px] focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none bg-white" title="Date début" />
+          <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-full px-3 py-2 border border-border rounded-lg text-[12px] focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none bg-white" title="Date fin" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
           <div className="relative"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4"><Calendar size={12} /></div><select value={periodFilter} onChange={(e) => setPeriodFilter(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-[12px] focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all bg-white appearance-none cursor-pointer"><option value="all">📅 Toute la période</option><option value="month">📆 Ce mois</option><option value="3months">🗓️ 3 derniers mois</option><option value="year">📅 Cette année</option></select><ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none" /></div>
           <div className="relative"><div className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4"><DollarSign size={12} /></div><select value={currencyFilter} onChange={(e) => setCurrencyFilter(e.target.value)} className="w-full pl-9 pr-3 py-2 border border-border rounded-lg text-[12px] focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none transition-all bg-white appearance-none cursor-pointer"><option value="all">💱 Toutes les devises</option><optgroup label="🌍 Afrique du Nord"><option value="TND">🇹🇳 Dinar tunisien (TND)</option><option value="DZD">🇩🇿 Dinar algérien (DZD)</option><option value="MAD">🇲🇦 Dirham marocain (MAD)</option><option value="LYD">🇱🇾 Dinar libyen (LYD)</option><option value="EGP">🇪🇬 Livre égyptienne (EGP)</option></optgroup><optgroup label="💰 Pays du Golfe (GCC)"><option value="SAR">🇸🇦 Riyal saoudien (SAR)</option><option value="AED">🇦🇪 Dirham des Émirats (AED)</option><option value="QAR">🇶🇦 Riyal qatari (QAR)</option><option value="OMR">🇴🇲 Rial omanais (OMR)</option><option value="KWD">🇰🇼 Dinar koweïtien (KWD)</option><option value="BHD">🇧🇭 Dinar bahreïni (BHD)</option></optgroup><optgroup label="🌍 Autres pays du Moyen-Orient"><option value="JOD">🇯🇴 Dinar jordanien (JOD)</option><option value="LBP">🇱🇧 Livre libanaise (LBP)</option><option value="SYP">🇸🇾 Livre syrienne (SYP)</option><option value="IQD">🇮🇶 Dinar irakien (IQD)</option><option value="IRR">🇮🇷 Rial iranien (IRR)</option><option value="YER">🇾🇪 Rial yéménite (YER)</option></optgroup><optgroup label="💶 Autres devises"><option value="EUR">🇪🇺 Euro (EUR)</option><option value="USD">🇺🇸 Dollar US (USD)</option></optgroup></select><ChevronDown size={12} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-4 pointer-events-none" /></div>
         </div>
@@ -507,7 +521,7 @@ export const Factures: React.FC = () => {
                 const isInvoiceOverdue = isOverdue(inv);
                 const currency = getInvoiceCurrency(inv);
                 return (
-                  <tr key={inv.id} id={`invoice-row-${inv.id}`} className="border-b border-border/50 hover:bg-surface-2 transition-colors group">
+                  <tr key={inv.id} id={`invoice-row-${inv.id}`} className="border-b border-border/50 hover:bg-surface-2 transition-colors group cursor-pointer" onClick={() => handlePreview(inv.id)}>
                     <td className="p-2.5 px-3.5 font-mono text-[11.5px] font-semibold text-accent">{inv.invoiceNumber || inv.id}</td>
                     <td className="p-2.5 px-3.5"><div className="font-semibold text-ink">{inv.client}</div><div className="text-[10px] text-ink-4">{inv.co}</div></td>
                     <td className="p-2.5 px-3.5 font-mono font-bold text-ink">{formatAmountWithCurrency(inv.total, currency)}</td>
@@ -515,7 +529,7 @@ export const Factures: React.FC = () => {
                     <td className="p-2.5 px-3.5 text-[11.5px] text-ink-4">{formatDate(inv.dueDate)}</td>
                     <td className="p-2.5 px-3.5">{isInvoiceOverdue ? <span className="badge badge-overdue bg-red-100 text-red-700 border-red-200">En retard</span> : <Badge status={inv.status === 'PAID' ? 'paid' : inv.status === 'ISSUED' ? 'pending' : inv.status === 'DRAFT' ? 'draft' : inv.status === 'CANCELLED' ? 'refused' : 'signed'} />}</td>
                     <td className="p-2.5 px-3.5">{buildLifecycle(inv.lc)}</td>
-                    <td className="p-2.5 px-3.5 text-right">
+                    <td className="p-2.5 px-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="relative">
                         <button onClick={(e) => toggleDropdown(e, inv.id)} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all duration-200 ${openActionId === inv.id ? 'bg-accent text-white shadow-md' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}>
                           <span className="text-[11px] font-bold">Actions</span>
@@ -593,6 +607,29 @@ export const Factures: React.FC = () => {
                 style={{ backgroundColor: '#1C6AE4' }}
                 className="px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition">
                 Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmation de suppression */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteConfirmId(null)}>
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-5 flex flex-col items-center text-center">
+              <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <Trash2 size={24} className="text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">Supprimer cette facture ?</h3>
+              <p className="text-sm text-gray-500">La facture de <strong>{deleteConfirmClient}</strong> sera définitivement supprimée.</p>
+            </div>
+            <div className="flex gap-3 px-6 pb-5">
+              <button onClick={() => setDeleteConfirmId(null)} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+                Annuler
+              </button>
+              <button onClick={confirmDelete} className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition">
+                Supprimer
               </button>
             </div>
           </div>

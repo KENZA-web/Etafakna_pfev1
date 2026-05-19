@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { X, Download, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
+import { ArrowLeft, Download, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 
 interface PDFViewerModalProps {
   url: string;
@@ -11,7 +11,6 @@ interface PDFViewerModalProps {
 const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ url, fileName, onClose, onDownload }) => {
   const [zoom, setZoom] = useState(100);
 
-  // Fermer avec Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -20,7 +19,6 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ url, fileName, onClose,
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  // Bloquer le scroll du body
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
@@ -34,6 +32,15 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ url, fileName, onClose,
       {/* Barre d'outils */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-[#1e293b] border-b border-white/10 flex-shrink-0">
         <div className="flex items-center gap-3">
+          {/* Flèche retour au lieu de X */}
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+            title="Retour (Échap)"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div className="w-px h-5 bg-white/20" />
           <div className="w-7 h-7 rounded-lg bg-accent/20 flex items-center justify-center">
             <span className="text-[11px] text-accent font-bold">PDF</span>
           </div>
@@ -41,7 +48,6 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ url, fileName, onClose,
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Zoom */}
           <button
             onClick={() => setZoom(z => Math.max(50, z - 10))}
             className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -67,7 +73,6 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ url, fileName, onClose,
 
           <div className="w-px h-5 bg-white/20 mx-1" />
 
-          {/* Télécharger */}
           {onDownload && (
             <button
               onClick={onDownload}
@@ -77,15 +82,6 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ url, fileName, onClose,
               Télécharger
             </button>
           )}
-
-          {/* Fermer */}
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg bg-white/10 hover:bg-red-500/80 text-white transition-colors ml-1"
-            title="Fermer (Échap)"
-          >
-            <X size={16} />
-          </button>
         </div>
       </div>
 

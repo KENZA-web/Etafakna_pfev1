@@ -44,7 +44,7 @@ const clientsSlice = createSlice({
       })
       .addCase(editClient.fulfilled, (state, action) => {
         const index = state.findIndex((c) => c.id === action.payload.id);
-        if (index !== -1) state[index] = action.payload;
+        if (index !== -1) state[index] = { ...state[index], ...action.payload };
       })
       .addCase(removeClient.fulfilled, (state, action) => state.filter((c) => c.id !== action.payload));
   },

@@ -69,14 +69,13 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
 }) => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Hauteur estimée du dropdown (~360px) — ouvre vers le haut si pas assez de place en bas
-  const dropdownHeight = 360;
+  const dropdownHeight = 300;
   const spaceBelow = window.innerHeight - anchorRect.bottom;
   const openUpward = spaceBelow < dropdownHeight;
 
   const top = openUpward
-    ? anchorRect.top + window.scrollY - dropdownHeight - 6
-    : anchorRect.bottom + window.scrollY + 6;
+    ? anchorRect.top + window.scrollY - dropdownHeight - 4
+    : anchorRect.bottom + window.scrollY + 4;
   const right = window.innerWidth - anchorRect.right;
 
   useEffect(() => {
@@ -93,104 +92,66 @@ const ActionDropdown: React.FC<ActionDropdownProps> = ({
     <div
       ref={dropdownRef}
       style={{ position: 'fixed', top, right, zIndex: 9999 }}
-      className="bg-white rounded-2xl shadow-2xl border border-border w-64 overflow-hidden"
+      className="bg-white rounded-xl shadow-xl border border-border w-52 overflow-hidden"
     >
-      {/* Header */}
-      <div className="px-4 py-3 bg-gradient-to-r from-accent/5 to-purple-50 border-b border-border">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center">
-            <ChevronDown size={12} className="text-accent" />
-          </div>
-          <span className="text-[11px] font-bold text-accent uppercase tracking-wide">Actions disponibles</span>
-        </div>
-        <p className="text-[10px] text-ink-4 mt-1 truncate">
-          Devis {(devis as any).quotationNumber || devis.id}
-        </p>
-      </div>
-
       <div className="py-1">
-        {/* Modifier — DRAFT */}
         {devis.status === 'DRAFT' && (
-          <button onClick={onEdit} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-indigo-50 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center"><Eye size={14} className="text-indigo-600" /></div>
-            <span className="flex-1 text-left font-medium">Modifier</span>
+          <button onClick={onEdit} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-ink-2 hover:bg-indigo-50 transition-colors">
+            <Eye size={13} className="text-indigo-500" />
+            <span className="font-medium">Modifier</span>
           </button>
         )}
-
-        {/* Aperçu PDF — toujours */}
-        <button onClick={onPreview} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-indigo-50 transition-colors">
-          <div className="w-7 h-7 rounded-lg bg-indigo-100 flex items-center justify-center"><Eye size={14} className="text-indigo-600" /></div>
-          <span className="flex-1 text-left font-medium">Aperçu PDF</span>
+        <button onClick={onPreview} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-ink-2 hover:bg-indigo-50 transition-colors">
+          <Eye size={13} className="text-indigo-500" />
+          <span className="font-medium">Aperçu PDF</span>
         </button>
-
-        {/* Télécharger PDF — toujours */}
-        <button onClick={onDownload} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-blue-50 transition-colors">
-          <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center"><Download size={14} className="text-blue-600" /></div>
-          <span className="flex-1 text-left font-medium">Télécharger PDF</span>
+        <button onClick={onDownload} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-ink-2 hover:bg-blue-50 transition-colors">
+          <Download size={13} className="text-blue-500" />
+          <span className="font-medium">Télécharger PDF</span>
         </button>
-
-        {/* Email — toujours */}
-        <button onClick={onEmail} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-ink-2 hover:bg-emerald-50 transition-colors">
-          <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center"><Mail size={14} className="text-emerald-600" /></div>
-          <span className="flex-1 text-left font-medium">Envoyer par email</span>
+        <button onClick={onEmail} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-ink-2 hover:bg-emerald-50 transition-colors">
+          <Mail size={13} className="text-emerald-500" />
+          <span className="font-medium">Envoyer par email</span>
         </button>
-
-        <div className="h-px bg-border my-1" />
-
-        {/* Marquer envoyé — DRAFT */}
+        <div className="h-px bg-border my-0.5" />
         {devis.status === 'DRAFT' && (
-          <button onClick={onSend} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-amber-700 hover:bg-amber-50 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center"><Send size={14} className="text-amber-600" /></div>
-            <span className="flex-1 text-left font-medium">Marquer envoyé</span>
+          <button onClick={onSend} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-amber-700 hover:bg-amber-50 transition-colors">
+            <Send size={13} className="text-amber-500" />
+            <span className="font-medium">Marquer envoyé</span>
           </button>
         )}
-
-        {/* Accepter — SENT */}
         {devis.status === 'SENT' && (
-          <button onClick={onAccept} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-green-700 hover:bg-green-50 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-green-100 flex items-center justify-center"><CheckCircle size={14} className="text-green-600" /></div>
-            <span className="flex-1 text-left font-medium">Marquer accepté</span>
+          <button onClick={onAccept} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-green-700 hover:bg-green-50 transition-colors">
+            <CheckCircle size={13} className="text-green-500" />
+            <span className="font-medium">Accepter</span>
           </button>
         )}
-
-        {/* Refuser — SENT */}
         {devis.status === 'SENT' && (
-          <button onClick={onRefuse} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-red-700 hover:bg-red-50 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center"><XCircle size={14} className="text-red-600" /></div>
-            <span className="flex-1 text-left font-medium">Marquer refusé</span>
+          <button onClick={onRefuse} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-red-700 hover:bg-red-50 transition-colors">
+            <XCircle size={13} className="text-red-500" />
+            <span className="font-medium">Refuser</span>
           </button>
         )}
-
-        {/* Convertir — ACCEPTED */}
         {devis.status === 'ACCEPTED' && (
-          <button onClick={onConvert} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-purple-700 hover:bg-purple-50 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center"><ArrowRight size={14} className="text-purple-600" /></div>
-            <span className="flex-1 text-left font-medium">Convertir en facture</span>
+          <button onClick={onConvert} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-purple-700 hover:bg-purple-50 transition-colors">
+            <ArrowRight size={13} className="text-purple-500" />
+            <span className="font-medium">Convertir en facture</span>
           </button>
         )}
-
-        <div className="h-px bg-border my-1" />
-
-        {/* Résumé IA — toujours */}
-        <button onClick={onChat} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-purple-700 hover:bg-purple-50 transition-colors">
-          <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center"><Sparkles size={14} className="text-purple-600" /></div>
-          <span className="flex-1 text-left font-medium">Résumé IA</span>
+        <div className="h-px bg-border my-0.5" />
+        <button onClick={onChat} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-purple-700 hover:bg-purple-50 transition-colors">
+          <Sparkles size={13} className="text-purple-500" />
+          <span className="font-medium">Résumé IA</span>
         </button>
-
-        <div className="h-px bg-border my-1" />
-
-        {/* Supprimer — DRAFT */}
         {devis.status === 'DRAFT' && (
-          <button onClick={onDelete} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-red-700 hover:bg-red-50 transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-red-100 flex items-center justify-center"><Trash2 size={14} className="text-red-600" /></div>
-            <span className="flex-1 text-left font-medium">Supprimer</span>
-          </button>
+          <>
+            <div className="h-px bg-border my-0.5" />
+            <button onClick={onDelete} className="w-full flex items-center gap-2 px-3 py-1.5 text-[12px] text-red-700 hover:bg-red-50 transition-colors">
+              <Trash2 size={13} className="text-red-500" />
+              <span className="font-medium">Supprimer</span>
+            </button>
+          </>
         )}
-      </div>
-
-      <div className="px-4 py-2 bg-surface-2 border-t border-border text-[10px] text-ink-4 flex items-center justify-between">
-        <span>Cliquez pour exécuter</span>
-        <span className="font-mono">esc pour fermer</span>
       </div>
     </div>
   );
@@ -254,10 +215,13 @@ export const Devis: React.FC = () => {
   const quotations = useSelector((state: RootState) => state.devis) as DevisType[];
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [openActionId, setOpenActionId] = useState<string | null>(null);
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
   const [convertModalId, setConvertModalId] = useState<string | null>(null);
   const [pdfViewer, setPdfViewer] = useState<{ url: string; fileName: string } | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Résumé IA
   const [aiSummaryDevis, setAiSummaryDevis] = useState<DevisType | null>(null);
@@ -268,6 +232,18 @@ export const Devis: React.FC = () => {
     if (quotations.length === 0) dispatch(fetchQuotations());
   }, [dispatch, quotations.length]);
 
+  // Écouter l'event d'aperçu PDF après création
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.url && detail?.fileName) {
+        setPdfViewer({ url: detail.url, fileName: detail.fileName });
+      }
+    };
+    window.addEventListener('open-pdf-preview', handler);
+    return () => window.removeEventListener('open-pdf-preview', handler);
+  }, []);
+
   const filteredDevis = quotations.filter((d) => {
     const clientName = typeof d.client === 'string' ? d.client : (d.client as any)?.name || '';
     const matchesSearch =
@@ -275,7 +251,15 @@ export const Devis: React.FC = () => {
       clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (d.id || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = !statusFilter || d.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    // Date range filter
+    let matchesDate = true;
+    if (dateFrom) {
+      matchesDate = matchesDate && d.issueDate >= dateFrom;
+    }
+    if (dateTo) {
+      matchesDate = matchesDate && d.issueDate <= dateTo;
+    }
+    return matchesSearch && matchesStatus && matchesDate;
   });
 
   const formatDate = (dateStr: string) => {
@@ -298,13 +282,18 @@ export const Devis: React.FC = () => {
   // ── Handlers ──────────────────────────────
   const handleDelete = async (id: string) => {
     closeDropdown();
-    if (!window.confirm('Supprimer ce devis ?')) return;
+    setDeleteConfirmId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmId) return;
     try {
-      await dispatch(removeQuotation(id)).unwrap();
+      await dispatch(removeQuotation(deleteConfirmId)).unwrap();
       dispatch(addToast({ message: '🗑️ Devis supprimé', type: 'info' }));
     } catch (err: any) {
       dispatch(addToast({ message: `❌ ${err?.message || err || 'Erreur'}`, type: 'error' }));
     }
+    setDeleteConfirmId(null);
   };
 
   const handleSend = async (id: string) => {
@@ -511,6 +500,29 @@ export const Devis: React.FC = () => {
         />
       )}
 
+      {/* Modal de confirmation de suppression */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setDeleteConfirmId(null)}>
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-5 flex flex-col items-center text-center">
+              <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <Trash2 size={24} className="text-red-500" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">Supprimer ce devis ?</h3>
+              <p className="text-sm text-gray-500">Cette action est irréversible. Le devis sera définitivement supprimé.</p>
+            </div>
+            <div className="flex gap-3 px-6 pb-5">
+              <button onClick={() => setDeleteConfirmId(null)} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-gray-600 hover:bg-gray-50 transition">
+                Annuler
+              </button>
+              <button onClick={confirmDelete} className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition">
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div>
@@ -536,7 +548,7 @@ export const Devis: React.FC = () => {
 
       {/* Filtres */}
       <div className="bg-white rounded-xl border border-border p-4 mb-4 shadow-sm">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="relative">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-4" />
             <input
@@ -560,6 +572,22 @@ export const Devis: React.FC = () => {
             <option value="CONVERTED">Converti</option>
             <option value="EXPIRED">Expiré</option>
           </select>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="w-full px-3 py-2 border border-border rounded-lg text-[12px] focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none bg-white"
+            placeholder="Du"
+            title="Date début"
+          />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="w-full px-3 py-2 border border-border rounded-lg text-[12px] focus:border-accent focus:ring-2 focus:ring-accent/10 outline-none bg-white"
+            placeholder="Au"
+            title="Date fin"
+          />
         </div>
       </div>
 
@@ -582,7 +610,7 @@ export const Devis: React.FC = () => {
                 const clientName =
                   typeof devis.client === 'string' ? devis.client : (devis.client as any)?.name || '—';
                 return (
-                  <tr key={devis.id} className="border-b border-border/50 hover:bg-surface-2 transition-colors">
+                  <tr key={devis.id} className="border-b border-border/50 hover:bg-surface-2 transition-colors cursor-pointer" onClick={() => handlePreviewPdf(devis.id, (devis as any).quotationNumber || devis.id)}>
                     <td className="p-2.5 px-3.5 font-mono text-[11.5px] font-semibold text-accent">
                       {(devis as any).quotationNumber || devis.id}
                     </td>
@@ -600,7 +628,7 @@ export const Devis: React.FC = () => {
                         {STATUS_LABELS[devis.status] || devis.status}
                       </Badge>
                     </td>
-                    <td className="p-2.5 px-3.5 text-right">
+                    <td className="p-2.5 px-3.5 text-right" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={(e) => toggleDropdown(e, devis.id)}
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all duration-200 ${
